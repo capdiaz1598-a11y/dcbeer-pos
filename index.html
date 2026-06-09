@@ -900,6 +900,8 @@ function toggleDia(idx){
 
 function buildDetalleProductos(ventas){
   if(!ventas||ventas.length===0) return '<p style="color:var(--text3);font-size:12px;padding:8px">Sin detalle disponible.</p>';
+
+  // Agrupar productos
   const pm={};
   ventas.forEach(v=>(v.items||[]).forEach(it=>{
     const k=it.nombre;
@@ -907,7 +909,20 @@ function buildDetalleProductos(ventas){
     pm[k].qty+=it.qty; pm[k].total+=it.precio*it.qty;
   }));
   const rows=Object.entries(pm).sort((a,b)=>b[1].total-a[1].total);
+
+  // Agrupar métodos de pago
+  const metodos={efectivo:0,nequi:0,mastercard:0,visa:0,diners:0,amex:0};
+  const iconos={efectivo:'💵',nequi:'📱',mastercard:'💳',visa:'💳',diners:'💳',amex:'💳'};
+  ventas.forEach(v=>{
+    const met=(v.metodo||'efectivo').toLowerCase();
+    if(metodos[met]!==undefined) metodos[met]+=v.total;
+    else metodos[met]=(metodos[met]||0)+v.total;
+  });
+  const metRows=Object.entries(metodos).filter(([k,v])=>v>0);
+
   return `<div style="padding:10px 14px;background:var(--bg);border-top:1px solid var(--border)">
+    <!-- PRODUCTOS -->
+    <div style="font-size:9px;color:var(--oro);text-transform:uppercase;letter-spacing:1.5px;font-weight:700;margin-bottom:6px">Productos vendidos</div>
     <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:6px;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;padding-bottom:6px;border-bottom:1px solid var(--border);margin-bottom:4px">
       <span>Producto</span><span style="text-align:right">Cantidad</span><span style="text-align:right">Total</span>
     </div>
@@ -915,6 +930,15 @@ function buildDetalleProductos(ventas){
       <span style="color:var(--text)">→ ${n}</span>
       <span style="text-align:right;color:var(--text2)">${d.qty} uds</span>
       <span style="text-align:right;color:var(--oro-light);font-weight:700">${fmt(d.total)}</span>
+    </div>`).join('')}
+    <!-- MÉTODOS DE PAGO -->
+    <div style="font-size:9px;color:var(--oro);text-transform:uppercase;letter-spacing:1.5px;font-weight:700;margin-top:12px;margin-bottom:6px">Métodos de pago</div>
+    <div style="display:grid;grid-template-columns:2fr 1fr;gap:6px;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;padding-bottom:6px;border-bottom:1px solid var(--border);margin-bottom:4px">
+      <span>Método</span><span style="text-align:right">Total</span>
+    </div>
+    ${metRows.map(([met,val])=>`<div style="display:grid;grid-template-columns:2fr 1fr;gap:6px;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px;align-items:center">
+      <span style="color:var(--text);text-transform:capitalize">${iconos[met]||'💳'} ${met.charAt(0).toUpperCase()+met.slice(1)}</span>
+      <span style="text-align:right;color:var(--green-light);font-weight:700">${fmt(val)}</span>
     </div>`).join('')}
   </div>`;
 }
