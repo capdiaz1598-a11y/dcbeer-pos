@@ -1025,10 +1025,12 @@ function fechaHoy(){
   if(S && S.turno && S.turno.abierto && S.turno.fechaApertura) return S.turno.fechaApertura;
   return _fechaJornadaReal();
 }
-// Detecta si la caja sigue abierta de un día de jornada distinto al actual
+// Detecta si la caja sigue abierta de un día de jornada distinto al actual.
+// Ya NO bloquea la operación: las ventas se siguen registrando en el turno abierto
+// (fechaHoy() las asigna al día de apertura) y la caja se cierra cuando el usuario decida.
+// Se conserva la función (siempre false) para no romper los puntos que la consultan.
 function _cajaCruzaDia(){
-  if(!S.turno.abierto || !S.turno.fechaApertura) return false;
-  return _fechaJornadaReal() !== S.turno.fechaApertura;
+  return false;
 }
 function semColor(p){ return p>30?'var(--green-light)':p>10?'var(--yellow)':'var(--red-light)'; }
 function semClass(p){ return p>30?'sem-g':p>10?'sem-y':'sem-r'; }
