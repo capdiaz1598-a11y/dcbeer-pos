@@ -744,7 +744,10 @@ if('serviceWorker' in navigator){
 
     <!-- PASO 1: estilos detectados automáticamente -->
     <div style="margin-bottom:14px">
-      <p style="font-size:11px;font-weight:600;color:var(--oro);margin-bottom:8px">Estilos disponibles (3 × 180ml)</p>
+      <p style="font-size:11px;font-weight:600;color:var(--oro);margin-bottom:8px;display:flex;justify-content:space-between">
+        <span>Elige los 3 estilos de la tabla (3 × 180ml)</span>
+        <span id="cata-sel-contador">0/3</span>
+      </p>
       <div id="cata-estilos-lista"></div>
     </div>
 
@@ -3179,25 +3182,18 @@ function calcGananciaImportado(prod,precio,qty){
 // ════════════════════════════════════════
 // CATA — flujo simplificado
 // ════════════════════════════════════════
-let cataBarriles=[];       // [{b, idx}] — los 3 barriles detectados
+let cataBarriles=[];       // [{b, i}] — barriles con stock (opciones para elegir)
+let cataSel=[];            // índices S.barriles elegidos para la tabla (máx. 3, en orden de selección)
 let cataLitros=null;       // 1 o 2
 let cataJarraIdx=null;     // índice dentro de cataBarriles (0/1/2)
 
 function abrirCata(){
   cataBarriles=S.barriles.map((b,i)=>({b,i})).filter(x=>x.b.litros>0);
+  cataSel=[];
   cataLitros=null; cataJarraIdx=null;
 
-  // --- paso 1: estilos detectados
-  let html='';
-  cataBarriles.forEach(({b})=>{
-    html+=`<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--surf3);border-radius:8px;margin-bottom:6px">
-      <span style="font-size:18px">🍺</span>
-      <span style="font-size:13px;font-weight:600;flex:1">${b.nombre}</span>
-      <span style="font-size:11px;color:var(--text2)">${b.litros.toFixed(1)}L disp.</span>
-    </div>`;
-  });
-  if(!html) html='<p style="font-size:12px;color:var(--text3)">Sin barriles disponibles.</p>';
-  document.getElementById('cata-estilos-lista').innerHTML=html;
+  // --- paso 1: elegir los 3 estilos de la tabla
+  cataRenderEstilos();
 
   // reset paso 2
   document.getElementById('cata-btn-1L').style.background='var(--surf3)';
@@ -3207,6 +3203,32 @@ function abrirCata(){
   document.getElementById('cata-precio-display').style.display='none';
 
   document.getElementById('modal-cata').classList.add('open');
+}
+
+function cataRenderEstilos(){
+  let html='';
+  cataBarriles.forEach(({b,i})=>{
+    const pos=cataSel.indexOf(i);
+    const sel=pos>=0;
+    const sinStock=b.litros<0.18;
+    const lleno=!sel && cataSel.length>=3;
+    const deshab=sinStock||lleno;
+    html+=`<div onclick="${deshab?'':`cataToggleEstilo(${i})`}" style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:${sel?'rgba(200,170,106,.18)':'var(--surf3)'};border:1px solid ${sel?'var(--oro)':'var(--border2)'};border-radius:8px;margin-bottom:6px;cursor:${deshab?'not-allowed':'pointer'};opacity:${deshab?'.45':'1'}">
+      <span style="font-size:18px">${sel?'✅':'🍺'}</span>
+      <span style="font-size:13px;font-weight:600;flex:1">${b.nombre}</span>
+      <span style="font-size:11px;color:var(--text2)">${sinStock?'sin stock suficiente':b.litros.toFixed(1)+'L disp.'}</span>
+    </div>`;
+  });
+  if(!html) html='<p style="font-size:12px;color:var(--text3)">Sin barriles disponibles.</p>';
+  document.getElementById('cata-estilos-lista').innerHTML=html;
+  document.getElementById('cata-sel-contador').textContent=cataSel.length+'/3';
+}
+
+function cataToggleEstilo(idx){
+  const pos=cataSel.indexOf(idx);
+  if(pos>=0) cataSel.splice(pos,1);
+  else if(cataSel.length<3) cataSel.push(idx);
+  cataRenderEstilos();
 }
 
 function cataElegirLitros(litros){
@@ -3229,17 +3251,18 @@ function cataElegirLitros(litros){
 }
 
 function addCata(){
-  if(cataBarriles.length<3){ toast('Necesitas al menos 3 barriles con litros disponibles'); return; }
+  if(cataSel.length!==3){ toast('Elige exactamente 3 estilos para la tabla'); return; }
   if(!cataLitros){ toast('Elige el tamaño de la jarra'); return; }
+  const elegidos=cataSel.map(i=>({b:S.barriles[i],i}));
   const cfg=S.config||{};
   const precio=cataLitros===1 ? (cfg.preciosCata?.litro1||0) : (cfg.preciosCata?.litro2||0);
   if(!precio||precio<=0){ toast('Configura los precios de cata primero'); return; }
 
-  const estilos=cataBarriles.map(({b})=>b.nombre).join(' / ');
+  const estilos=elegidos.map(({b})=>b.nombre).join(' / ');
   const nombre=`Cata ${cataLitros}L 🕐 (${estilos})`;
   const m=S.mesas[curMesa];
   // Guardamos snapshot de los barriles para el paso 2
-  const snap=cataBarriles.map(({b,i})=>({barrilIdx:i,nombre:b.nombre}));
+  const snap=elegidos.map(({b,i})=>({barrilIdx:i,nombre:b.nombre}));
   m.items.push({
     key:'cata_'+Date.now(),
     nombre,
