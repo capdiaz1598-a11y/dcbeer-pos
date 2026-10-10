@@ -1045,6 +1045,22 @@ function gananciaItem(it){
   if(it.tipo==='barril'){ const b=S.barriles[it.barrilIdx]; if(!b) return 0; return (it.precio-costoPorMl(b)*it.ml)*it.qty; }
   if(it.tipo==='lata'){ const l=S.latas[it.lataIdx]; return l?(l.precio-l.costo)*it.qty:0; }
   if(it.tipo==='snack'){ const sn=S.snacks[it.snackIdx]; return sn?(sn.precio-sn.costo)*it.qty:0; }
+  if(it.tipo==='cata'||it.tipo==='tabla'){
+    // costo = ml sacados de cada barril × costo/ml de ese barril
+    let costo=0;
+    const des=it.desgloseBarriles||[];
+    if(des.length){
+      des.forEach(d=>{ const b=S.barriles[d.barrilIdx]; if(b) costo+=costoPorMl(b)*d.ml; });
+    } else if(it.tipo==='cata' && it.cataBarrilesSnap && it.cataBarrilesSnap.length){
+      // cata cobrada sin elegir la jarra: estimar con 3×180ml + jarra al costo promedio de los 3 estilos
+      const bs=it.cataBarrilesSnap.map(s=>S.barriles[s.barrilIdx]).filter(Boolean);
+      if(bs.length){
+        const prom=bs.reduce((a,b)=>a+costoPorMl(b),0)/bs.length;
+        costo=prom*(180*bs.length+(it.cataLitros||0)*1000);
+      }
+    }
+    return (it.precio-costo)*it.qty;
+  }
   if(it.tipo==='radler'){
     if(!it.radlerBase) return 0;
     const ml=it.radlerMl||290;
