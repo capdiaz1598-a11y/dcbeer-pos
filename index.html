@@ -851,6 +851,7 @@ if('serviceWorker' in navigator){
         <option value="combo">Combo a precio fijo (ej: 2 pintas por $32.000)</option>
         <option value="descuento">Porcentaje de descuento (ej: 15% en jarras)</option>
         <option value="happyhour">Happy Hour por horario (ej: jarra a $30.000 de 6pm a 8pm)</option>
+        <option value="nxgratis">Lleva gratis (ej: compra 2 pintas, la 3ª gratis) con días y horario</option>
       </select>
     </div>
 
@@ -879,6 +880,31 @@ if('serviceWorker' in navigator){
         <div class="form-row"><label class="form-lbl">Hora inicio</label><input class="form-inp" id="promo-horainicio" type="time" value="18:00"></div>
         <div class="form-row"><label class="form-lbl">Hora fin</label><input class="form-inp" id="promo-horafin" type="time" value="20:00"></div>
       </div>
+    </div>
+
+    <!-- Campos LLEVA GRATIS (2+1) -->
+    <div id="promo-campos-nxgratis" style="display:none">
+      <div class="form-g2">
+        <div class="form-row"><label class="form-lbl">Compra (cantidad)</label><input class="form-inp" id="promo-nx-compra" type="number" value="2" placeholder="2"></div>
+        <div class="form-row"><label class="form-lbl">Lleva gratis (cantidad)</label><input class="form-inp" id="promo-nx-gratis" type="number" value="1" placeholder="1"></div>
+      </div>
+      <div class="form-row">
+        <label class="form-lbl">Días en que aplica</label>
+        <div id="promo-nx-dias" style="display:flex;flex-wrap:wrap;gap:4px 12px;background:var(--surf3);border:1px solid var(--border2);border-radius:6px;padding:8px 12px">
+          <label class="promo-prod-row"><input type="checkbox" value="1"> Lun</label>
+          <label class="promo-prod-row"><input type="checkbox" value="2" checked> Mar</label>
+          <label class="promo-prod-row"><input type="checkbox" value="3" checked> Mié</label>
+          <label class="promo-prod-row"><input type="checkbox" value="4"> Jue</label>
+          <label class="promo-prod-row"><input type="checkbox" value="5"> Vie</label>
+          <label class="promo-prod-row"><input type="checkbox" value="6"> Sáb</label>
+          <label class="promo-prod-row"><input type="checkbox" value="0"> Dom</label>
+        </div>
+      </div>
+      <div class="form-g2">
+        <div class="form-row"><label class="form-lbl">Hora inicio</label><input class="form-inp" id="promo-nx-horainicio" type="time" value="19:00"></div>
+        <div class="form-row"><label class="form-lbl">Hora fin</label><input class="form-inp" id="promo-nx-horafin" type="time" value="21:00"></div>
+      </div>
+      <p style="font-size:11px;color:var(--text2);margin-top:2px">El botón Activar/Desactivar de la lista es el interruptor general: solo se aplica si está activa, es uno de los días marcados y está dentro del horario.</p>
     </div>
 
     <div class="modal-btns">
@@ -1588,6 +1614,8 @@ function openComanda(idx){
   if(_cajaCruzaDia()){ _mostrarAlertaCajaCruzada(); return; }
   curMesa=idx;
   document.getElementById('comanda-title').textContent=S.mesas[idx].nombre;
+  // Re-evaluar promociones al abrir la mesa (por si cambió el día/horario desde la última vez)
+  if(!S.mesas[idx].items.some(it=>it.tipo==='cata')) { _aplicarPromociones(S.mesas[idx]); save(); }
   rComandaProds(); rComandaItems();
   document.getElementById('comanda-ov').classList.add('open');
 }
@@ -1755,7 +1783,46 @@ function _aplicarPromociones(mesa){
         it.promoAplicada = promo.nombre;
       });
     }
+    else if(promo.tipo==='nxgratis'){
+      // Solo aplica en los días y el horario definidos (el interruptor "activa" ya se verificó arriba)
+      if(!_promoVigenteAhora(promo)) return;
+      const compra = promo.compra||2, gratis = promo.gratis||1, tam = compra+gratis;
+
+      // Unidades individuales entre todos los productos elegibles, más caras primero
+      // (si se mezclan productos, la gratis es la más barata de cada grupo).
+      const unidades = [];
+      itemsCoincidentes.forEach(it=>{
+        for(let u=0; u<it.qty; u++) unidades.push({ item: it, precioOriginal: it.precioOriginal });
+      });
+      if(unidades.length < tam) return; // todavía no completa el grupo (ej: solo 2 pintas)
+      unidades.sort((a,b)=>b.precioOriginal-a.precioOriginal);
+
+      const totalPorItem = new Map();
+      itemsCoincidentes.forEach(it=>totalPorItem.set(it, 0));
+      for(let i=0; i<unidades.length; i+=tam){
+        const lote = unidades.slice(i, i+tam);
+        const esCompleto = lote.length===tam;
+        lote.forEach((u,j)=>{
+          const esGratis = esCompleto && j>=compra; // las últimas "gratis" del grupo (las más baratas)
+          if(!esGratis) totalPorItem.set(u.item, totalPorItem.get(u.item) + u.precioOriginal);
+        });
+      }
+      itemsCoincidentes.forEach(it=>{
+        const nuevo = totalPorItem.get(it) / it.qty;
+        if(nuevo < it.precioOriginal){
+          it.precio = nuevo;
+          it.promoAplicada = promo.nombre;
+        }
+      });
+    }
   });
+}
+
+// ¿La promoción (con días/horario) está vigente en este momento?
+function _promoVigenteAhora(promo){
+  if(promo.dias && promo.dias.length>0 && !promo.dias.includes(new Date().getDay())) return false;
+  if(promo.horaInicio && promo.horaFin && !_horaActualEnRango(promo.horaInicio, promo.horaFin)) return false;
+  return true;
 }
 
 function rComandaItems(){
@@ -2543,12 +2610,12 @@ function rConfig(){
   document.getElementById('cfg-snacks').innerHTML=S.snacks.length===0?'<p style="color:var(--text2);font-size:13px">Sin snacks.</p>':S.snacks.map((sn,i)=>`<div class="cfg-item"><div class="cfg-item-info"><div class="cfg-item-name">${sn.nombre}</div><div class="cfg-item-detail"><span>Precio: ${fmt(sn.precio)}</span><span>Costo: ${fmt(sn.costo||0)}</span><span>Margen: ${sn.precio>0?Math.round(((sn.precio-(sn.costo||0))/sn.precio)*100):0}%</span><span>Stock: ${sn.stock}/${sn.stockMax}</span></div></div><div class="cfg-actions"><button class="btn-edit" onclick="openMS(${i})">✏ Editar</button><button class="btn-del-sm" onclick="delSnack(${i})">✕</button></div></div>`).join('');
   document.getElementById('cfg-mesas').innerHTML=S.mesas.map((m,i)=>`<div class="cfg-item"><div class="cfg-item-info"><div class="cfg-item-name">${m.nombre}</div></div>${S.mesas.length>1?'<button class="btn-del-sm btn-xs" onclick="delMesa('+i+')">✕</button>':''}</div>`).join('');
 
-  const TIPO_LABEL = {combo:'Combo', descuento:'Descuento %', happyhour:'Happy Hour'};
+  const TIPO_LABEL = {combo:'Combo', descuento:'Descuento %', happyhour:'Happy Hour', nxgratis:'Lleva gratis'};
   document.getElementById('cfg-promociones').innerHTML = S.promociones.length===0
     ? '<p style="color:var(--text2);font-size:13px">Sin promociones creadas todavía.</p>'
     : S.promociones.map((p,i)=>`<div class="cfg-item" style="${p.activa?'border-color:var(--green-light)':''}">
         <div class="cfg-item-info">
-          <div class="cfg-item-name">${p.nombre} ${p.activa?'<span style="color:var(--green-light);font-size:10px;font-weight:800;margin-left:6px">● ACTIVA</span>':'<span style="color:var(--text3);font-size:10px;margin-left:6px">inactiva</span>'}</div>
+          <div class="cfg-item-name">${p.nombre} ${p.activa?('<span style="color:var(--green-light);font-size:10px;font-weight:800;margin-left:6px">● ACTIVA'+((p.tipo==='nxgratis' && !_promoVigenteAhora(p))?' · fuera de día/horario ahora':'')+'</span>'):'<span style="color:var(--text3);font-size:10px;margin-left:6px">inactiva</span>'}</div>
           <div class="cfg-item-detail"><span>${TIPO_LABEL[p.tipo]}</span><span>${_descripcionPromo(p)}</span></div>
         </div>
         <div class="cfg-actions">
@@ -2687,6 +2754,7 @@ function promoMostrarCampos(){
   document.getElementById('promo-campos-combo').style.display = tipo==='combo' ? 'block' : 'none';
   document.getElementById('promo-campos-descuento').style.display = tipo==='descuento' ? 'block' : 'none';
   document.getElementById('promo-campos-happyhour').style.display = tipo==='happyhour' ? 'block' : 'none';
+  document.getElementById('promo-campos-nxgratis').style.display = tipo==='nxgratis' ? 'block' : 'none';
 }
 
 function openPromo(idx){
@@ -2713,6 +2781,13 @@ function openPromo(idx){
     document.getElementById('promo-preciohh').value = p.precioEspecial||'';
     document.getElementById('promo-horainicio').value = p.horaInicio||'18:00';
     document.getElementById('promo-horafin').value = p.horaFin||'20:00';
+    document.getElementById('promo-nx-compra').value = p.compra||2;
+    document.getElementById('promo-nx-gratis').value = p.gratis||1;
+    document.getElementById('promo-nx-horainicio').value = (p.tipo==='nxgratis' && p.horaInicio)||'19:00';
+    document.getElementById('promo-nx-horafin').value = (p.tipo==='nxgratis' && p.horaFin)||'21:00';
+    document.querySelectorAll('#promo-nx-dias input').forEach(c=>{
+      c.checked = p.tipo==='nxgratis' ? (p.dias||[]).includes(parseInt(c.value)) : (c.value==='2'||c.value==='3');
+    });
   } else {
     document.getElementById('promo-title').textContent = 'Agregar Promoción';
     document.getElementById('promo-nombre').value = '';
@@ -2723,6 +2798,11 @@ function openPromo(idx){
     document.getElementById('promo-preciohh').value = '';
     document.getElementById('promo-horainicio').value = '18:00';
     document.getElementById('promo-horafin').value = '20:00';
+    document.getElementById('promo-nx-compra').value = 2;
+    document.getElementById('promo-nx-gratis').value = 1;
+    document.getElementById('promo-nx-horainicio').value = '19:00';
+    document.getElementById('promo-nx-horafin').value = '21:00';
+    document.querySelectorAll('#promo-nx-dias input').forEach(c=>{ c.checked = (c.value==='2'||c.value==='3'); });
   }
   promoMostrarCampos();
   document.getElementById('modal-promo').classList.add('open');
@@ -2761,6 +2841,21 @@ function savePromo(){
     if(!precioEspecial || precioEspecial<=0){ toast('Ingresa el precio especial'); return; }
     if(!horaInicio || !horaFin){ toast('Define el rango de horario'); return; }
     promo.precioEspecial = precioEspecial;
+    promo.horaInicio = horaInicio;
+    promo.horaFin = horaFin;
+  } else if(tipo==='nxgratis'){
+    const compra = parseInt(document.getElementById('promo-nx-compra').value);
+    const gratis = parseInt(document.getElementById('promo-nx-gratis').value);
+    const horaInicio = document.getElementById('promo-nx-horainicio').value;
+    const horaFin = document.getElementById('promo-nx-horafin').value;
+    const dias = [...document.querySelectorAll('#promo-nx-dias input:checked')].map(c=>parseInt(c.value));
+    if(!compra || compra<1){ toast('Indica cuántas debe comprar el cliente'); return; }
+    if(!gratis || gratis<1){ toast('Indica cuántas lleva gratis'); return; }
+    if(dias.length===0){ toast('Marca al menos un día'); return; }
+    if(!horaInicio || !horaFin){ toast('Define el rango de horario'); return; }
+    promo.compra = compra;
+    promo.gratis = gratis;
+    promo.dias = dias;
     promo.horaInicio = horaInicio;
     promo.horaFin = horaFin;
   }
@@ -2804,6 +2899,11 @@ function _descripcionPromo(p){
   if(p.tipo==='combo') return `${p.cantidad} × [${listaProds}] por ${fmt(p.precioCombo)}`;
   if(p.tipo==='descuento') return `${p.porcentaje}% de descuento en: ${listaProds}`;
   if(p.tipo==='happyhour') return `${listaProds} a ${fmt(p.precioEspecial)} de ${p.horaInicio} a ${p.horaFin}`;
+  if(p.tipo==='nxgratis'){
+    const NOM = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+    const dias = (p.dias||[]).slice().sort((a,b)=>((a+6)%7)-((b+6)%7)).map(d=>NOM[d]).join(', ');
+    return `Compra ${p.compra}, lleva ${p.gratis} gratis en: ${listaProds} · ${dias} de ${p.horaInicio} a ${p.horaFin}`;
+  }
   return '';
 }
 
