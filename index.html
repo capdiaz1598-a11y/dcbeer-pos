@@ -517,6 +517,21 @@ if('serviceWorker' in navigator){
             <input type="file" id="file-restore" accept=".json" style="display:none" onchange="restaurarBackup(this)">
             <p style="font-size:10px;color:var(--red-light);margin-top:8px">⚠ Restaurar reemplaza TODOS los datos actuales por los del archivo.</p>
           </div>
+          <div class="card" style="border-color:rgba(74,143,196,.35);background:rgba(74,143,196,.05)">
+            <div class="cfg-sec-title" style="color:#6aa9d9;border-color:rgba(74,143,196,.35)">Conectar con Gastos</div>
+            <p style="font-size:11px;color:var(--text2);margin-bottom:10px">Envía a la app <b>DC BEER · Gastos</b> el total de ventas de cada día para comparar ventas contra gastos por mes. Solo viaja el resumen del día (ventas, recargo, ganancia y número de ventas).</p>
+            <div id="sync-estado" style="font-size:12px;color:var(--text);margin-bottom:8px"></div>
+            <div id="sync-error" style="display:none;font-size:12px;color:var(--red-light);margin-bottom:8px"></div>
+            <div id="sync-login">
+              <div class="form-row"><label class="form-lbl">Correo (el mismo de la app de Gastos)</label><input class="form-inp" id="sync-email" type="email" autocomplete="username" inputmode="email"></div>
+              <div class="form-row"><label class="form-lbl">Contraseña</label><input class="form-inp" id="sync-pass" type="password" autocomplete="current-password"></div>
+              <button class="btn btn-oro btn-sm" id="sync-btn-conectar" onclick="syncConectar()" style="width:100%">Conectar y enviar ventas</button>
+            </div>
+            <div id="sync-acciones" style="display:none">
+              <button class="btn btn-oro btn-sm" onclick="syncAhora()" style="width:100%;margin-bottom:8px">Sincronizar ahora</button>
+              <button class="btn btn-gray btn-sm" onclick="syncDesconectar()" style="width:100%">Desconectar</button>
+            </div>
+          </div>
           <div class="danger-zone">
             <div class="danger-title"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M12 3.5 21 19.5H3z"/><line x1="12" y1="9.5" x2="12" y2="14"/><line x1="12" y1="16.7" x2="12" y2="16.7"/></svg>Zona de peligro</div>
             <button class="btn btn-red btn-sm" onclick="cerrarDia()" style="width:100%;margin-bottom:8px"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><rect x="5" y="11" width="14" height="9" rx="1.5"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Cerrar día → guardar en historial</button>
@@ -958,7 +973,132 @@ let chartRentHoy=null;
 let histFechaFiltro = '';   // formato YYYY-MM-DD (igual al <input type="date">)
 let histSemanaFiltro = '';  // formato YYYY-MM-DD (cualquier día de la semana deseada)
 let histMesFiltro = '';     // formato YYYY-MM
-function save(){ localStorage.setItem('dcbeer_v4',JSON.stringify(S)); }
+function save(){ localStorage.setItem('dcbeer_v4',JSON.stringify(S)); try{ _syncSoon(); }catch(e){} }
+
+// ════════════════════════════════════════
+// SINCRONIZACIÓN CON "DC BEER · GASTOS"
+// Publica un resumen de ventas por día (nunca los productos ni las mesas) en el
+// Firebase de la app de Gastos, en el nodo ventas/AAAA-MM-DD. Así la app de Gastos
+// puede comparar ventas contra gastos por mes. Todo va envuelto en try/catch:
+// si algo falla, el POS sigue vendiendo normal.
+// ════════════════════════════════════════
+const SYNC_FB_CONFIG = {
+  apiKey: 'AIzaSyDil0xY3SGibP3-x8-nD3Kg1zEl08obnXg',
+  authDomain: 'dcbeer-gastos.firebaseapp.com',
+  databaseURL: 'https://dcbeer-gastos-default-rtdb.firebaseio.com',
+  projectId: 'dcbeer-gastos',
+  appId: '1:321858031815:web:21796e7c5e2195ada82ee2'
+};
+let _fb=null, _syncTimer=null, _syncHash='', _syncError='';
+function _syncActivo(){ try{ return localStorage.getItem('dcbeer_sync')==='1'; }catch(e){ return false; } }
+function _syncSoon(){
+  if(!_syncActivo()) return;
+  clearTimeout(_syncTimer);
+  _syncTimer=setTimeout(()=>{ _syncVentas(false).catch(()=>{}); },6000);
+}
+async function _fbCargar(){
+  if(_fb) return _fb;
+  const B='https://www.gstatic.com/firebasejs/10.14.1/';
+  const [a,au,d]=await Promise.all([import(B+'firebase-app.js'),import(B+'firebase-auth.js'),import(B+'firebase-database.js')]);
+  const app=a.initializeApp(SYNC_FB_CONFIG,'dcbeer-pos-sync');
+  const auth=au.getAuth(app);
+  const db=d.getDatabase(app);
+  if(auth.authStateReady) await auth.authStateReady();
+  _fb={au,d,auth,db};
+  return _fb;
+}
+function _fechaISO(f){
+  const p=String(f||'').split('/');
+  if(p.length!==3) return null;
+  return p[2]+'-'+p[1].padStart(2,'0')+'-'+p[0].padStart(2,'0');
+}
+// Agrupa TODAS las ventas (historial + caja abierta) por la fecha de cada venta.
+function _resumenVentasPorDia(){
+  const dias={};
+  const dia=iso=>dias[iso]||(dias[iso]={fecha:iso,total:0,base:0,recargo:0,ganancia:0,numVentas:0});
+  const sumar=(v)=>{ const iso=_fechaISO(v.fecha); if(!iso) return null; const d=dia(iso); d.total+=v.total||0; d.base+=(v.totalBase!=null?v.totalBase:v.total)||0; d.recargo+=v.recargo||0; d.numVentas++; return iso; };
+  // Días ya cerrados: la ganancia guardada al cerrar la caja se reparte según lo vendido cada día
+  (S.historial||[]).forEach(h=>{
+    const vs=h.ventas||[]; if(!vs.length) return;
+    const porDia={}; let totalH=0;
+    vs.forEach(v=>{ const iso=sumar(v); if(!iso) return; porDia[iso]=(porDia[iso]||0)+(v.total||0); totalH+=(v.total||0); });
+    if(totalH>0) Object.keys(porDia).forEach(iso=>{ dias[iso].ganancia+=(h.ganancia||0)*porDia[iso]/totalH; });
+  });
+  // Caja abierta ahora: ganancia calculada con los costos actuales
+  (S.ventas||[]).forEach(v=>{ const iso=sumar(v); if(iso){ try{ dias[iso].ganancia+=gananciaVenta(v); }catch(e){} } });
+  Object.values(dias).forEach(d=>{ d.total=Math.round(d.total); d.base=Math.round(d.base); d.recargo=Math.round(d.recargo); d.ganancia=Math.round(d.ganancia); });
+  return dias;
+}
+// Devuelve {ok, dias} o {ok:false, motivo}
+async function _syncVentas(forzar){
+  try{
+    const fb=await _fbCargar();
+    if(!fb.auth.currentUser){ _syncError='Falta iniciar sesión'; return {ok:false,motivo:'sin-sesion'}; }
+    const dias=_resumenVentasPorDia();
+    const claves=Object.keys(dias);
+    if(!claves.length){ _syncError=''; return {ok:true,dias:0}; }
+    const hash=JSON.stringify(dias);
+    if(!forzar && hash===_syncHash) return {ok:true,dias:0};
+    const payload={}; const ahora=Date.now();
+    claves.forEach(k=>{ payload[k]={...dias[k],actualizado:ahora}; });
+    await fb.d.update(fb.d.ref(fb.db,'ventas'),payload);
+    _syncHash=hash; _syncError='';
+    try{ localStorage.setItem('dcbeer_sync_last',String(ahora)); }catch(e){}
+    try{ rSyncEstado(); }catch(e){}
+    return {ok:true,dias:claves.length};
+  }catch(err){
+    const c=(err&&(err.code||err.message))||'error';
+    _syncError=/permission/i.test(c)?'Firebase no permitió escribir en "ventas". Hay que ajustar las reglas de la base de datos.':'No se pudo sincronizar ('+c+'). Se reintentará al próximo cambio.';
+    try{ rSyncEstado(); }catch(e){}
+    return {ok:false,motivo:c};
+  }
+}
+function rSyncEstado(){
+  const el=document.getElementById('sync-estado'); if(!el) return;
+  const conectado=_syncActivo();
+  const email=(()=>{ try{ return localStorage.getItem('dcbeer_sync_email')||''; }catch(e){ return ''; } })();
+  const last=(()=>{ try{ return parseInt(localStorage.getItem('dcbeer_sync_last')||'0'); }catch(e){ return 0; } })();
+  const login=document.getElementById('sync-login'), acciones=document.getElementById('sync-acciones');
+  if(login) login.style.display=conectado?'none':'block';
+  if(acciones) acciones.style.display=conectado?'block':'none';
+  let t=conectado?('Conectado como '+email+'.'):'Sin conectar.';
+  if(conectado&&last) t+=' Última sincronización: '+new Date(last).toLocaleString('es-CO',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})+'.';
+  el.textContent=t;
+  const er=document.getElementById('sync-error'); if(er){ er.textContent=_syncError||''; er.style.display=_syncError?'block':'none'; }
+}
+async function syncConectar(){
+  const email=(document.getElementById('sync-email').value||'').trim();
+  const pass=document.getElementById('sync-pass').value||'';
+  if(!email||!pass){ toast('Escribe el correo y la contraseña'); return; }
+  const btn=document.getElementById('sync-btn-conectar'); btn.disabled=true;
+  try{
+    const fb=await _fbCargar();
+    await fb.au.signInWithEmailAndPassword(fb.auth,email,pass);
+    try{ localStorage.setItem('dcbeer_sync','1'); localStorage.setItem('dcbeer_sync_email',email); }catch(e){}
+    document.getElementById('sync-pass').value='';
+    const r=await _syncVentas(true);
+    if(r.ok) toast(r.dias?('✅ Conectado — '+r.dias+' días enviados a Gastos'):'✅ Conectado (aún no hay ventas para enviar)');
+    else toast('Conectado, pero no se pudo enviar. Revisa el aviso en rojo.');
+  }catch(err){
+    const c=(err&&err.code)||'';
+    toast(/invalid-credential|wrong-password|user-not-found|invalid-email/.test(c)?'Correo o contraseña incorrectos':'No se pudo conectar. Revisa tu internet.');
+  }
+  btn.disabled=false; rSyncEstado();
+}
+async function syncAhora(){
+  const r=await _syncVentas(true);
+  if(r.ok) toast(r.dias?('✅ '+r.dias+' días sincronizados'):'✅ Nada nuevo por enviar');
+  else toast('No se pudo sincronizar. Revisa el aviso en rojo.');
+  rSyncEstado();
+}
+async function syncDesconectar(){
+  if(!confirm('¿Desconectar el POS de la app de Gastos? Las ventas ya enviadas se conservan.')) return;
+  try{ localStorage.removeItem('dcbeer_sync'); }catch(e){}
+  try{ if(_fb) await _fb.au.signOut(_fb.auth); }catch(e){}
+  _syncError=''; rSyncEstado(); toast('POS desconectado de Gastos');
+}
+// Al abrir el POS: si ya estaba conectado, enviar lo pendiente unos segundos después de cargar
+setTimeout(()=>{ if(_syncActivo()) _syncSoon(); },3000);
 
 // ════════════════════════════════════════
 // ICONOS SVG (línea fina, marca DC BEER)
@@ -2594,6 +2734,7 @@ function histLimpiarMes(){ histMesFiltro = ''; rHistorial(); }
 // CONFIG
 // ════════════════════════════════════════
 function rConfig(){
+  try{ rSyncEstado(); }catch(e){}
   document.getElementById('cfg-base').value=S.config.baseCaja||100000;
   document.getElementById('cfg-recargo').value=S.config.recargo||6;
   const pc=S.config.preciosCata||{};
