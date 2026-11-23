@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>DC BEER — Sistema POS</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="vendor/xlsx.full.min.js"></script>
+<script src="vendor/chart.umd.min.js"></script>
 <style>
 :root {
   --oro: #C8922A;
@@ -96,6 +96,8 @@ html,body{height:100%;overflow:hidden;font-family:'Segoe UI',system-ui,sans-seri
 .prod-btn:hover{background:var(--surf4);border-color:var(--cobre)}
 .prod-btn .precio{color:var(--oro-light);font-weight:700;font-size:13px}
 .prod-btn.agotado{opacity:.3;cursor:not-allowed}
+.agotados-line{font-size:11px;color:var(--text3);padding:6px 4px 2px;line-height:1.5;border-top:1px dashed var(--border);margin-top:6px}
+.agotados-line b{color:var(--text2);font-weight:700;letter-spacing:.5px;text-transform:uppercase;font-size:10px;margin-right:4px}
 .pres-grid{padding:4px 0 4px 12px;border-left:2px solid var(--oro);margin-left:4px;margin-bottom:4px}
 .item-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)}
 .item-row.cata-pendiente{background:rgba(200,100,0,.10);border-radius:8px;padding:8px;border:1px solid rgba(200,120,0,.4);cursor:pointer;animation:parpadeaCata 2s ease-in-out infinite}
@@ -305,10 +307,7 @@ html,body{height:100%;overflow:hidden;font-family:'Segoe UI',system-ui,sans-seri
 <meta name="apple-mobile-web-app-title" content="DC BEER POS">
 <script>
 if('serviceWorker' in navigator){
-  const swCode = atob('CmNvbnN0IENBQ0hFID0gJ2RjYmVlci12NCc7CmNvbnN0IEFTU0VUUyA9IFsnLiddOwpzZWxmLmFkZEV2ZW50TGlzdGVuZXIoJ2luc3RhbGwnLCBlID0+IHsKICBlLndhaXRVbnRpbChjYWNoZXMub3BlbihDQUNIRSkudGhlbihjID0+IGMuYWRkQWxsKEFTU0VUUykpKTsKICBzZWxmLnNraXBXYWl0aW5nKCk7Cn0pOwpzZWxmLmFkZEV2ZW50TGlzdGVuZXIoJ2FjdGl2YXRlJywgZSA9PiB7CiAgZS53YWl0VW50aWwoY2FjaGVzLmtleXMoKS50aGVuKGtleXMgPT4gUHJvbWlzZS5hbGwoa2V5cy5maWx0ZXIoaz0+ayE9PUNBQ0hFKS5tYXAoaz0+Y2FjaGVzLmRlbGV0ZShrKSkpKSk7CiAgc2VsZi5jbGllbnRzLmNsYWltKCk7Cn0pOwpzZWxmLmFkZEV2ZW50TGlzdGVuZXIoJ2ZldGNoJywgZSA9PiB7CiAgZS5yZXNwb25kV2l0aChjYWNoZXMubWF0Y2goZS5yZXF1ZXN0KS50aGVuKHIgPT4gciB8fCBmZXRjaChlLnJlcXVlc3QpLmNhdGNoKCgpID0+IGNhY2hlcy5tYXRjaCgnLicpKSkpOwp9KTsK');
-  const blob = new Blob([swCode], {type:'application/javascript'});
-  const swUrl = URL.createObjectURL(blob);
-  navigator.serviceWorker.register(swUrl).then(()=>console.log('SW registered')).catch(e=>console.log('SW error:',e));
+  window.addEventListener('load',()=>{ navigator.serviceWorker.register('sw.js').then(()=>console.log('SW registered')).catch(e=>console.log('SW error:',e)); });
 }
 </script>
 </head>
@@ -506,7 +505,13 @@ if('serviceWorker' in navigator){
             <div class="cfg-sec-title" style="color:var(--green-light);border-color:rgba(46,204,113,.3)">
               <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M12 3v12"/><path d="M7 11l5 5 5-5"/><line x1="4" y1="20" x2="20" y2="20"/></svg>Copia de seguridad
             </div>
-            <p style="font-size:11px;color:var(--text2);margin-bottom:12px">Guarda un archivo con toda la información del sistema (ventas, historial, stock, configuración). Hazlo después de cerrar cada día.</p>
+            <p style="font-size:11px;color:var(--text2);margin-bottom:10px">Guarda un archivo con toda la información del sistema (ventas, historial, stock, configuración). Además, si estás conectado con Gastos, el sistema se respalda solo en la nube.</p>
+            <div id="bk-estado" style="font-size:12px;color:var(--text);margin-bottom:8px"></div>
+            <div id="bk-error" style="display:none;font-size:12px;color:var(--red-light);margin-bottom:8px"></div>
+            <div id="bk-acciones" style="display:none;margin-bottom:10px">
+              <button class="btn btn-oro btn-sm" onclick="respaldarAhora()" style="width:100%;margin-bottom:8px">☁ Respaldar ahora en la nube</button>
+              <button class="btn btn-gray btn-sm" onclick="restaurarDesdeNube()" style="width:100%">Restaurar desde la nube</button>
+            </div>
             <button class="btn btn-green btn-sm" onclick="descargarBackup()" style="width:100%;margin-bottom:8px">
               <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M12 3v12"/><path d="M7 11l5 5 5-5"/><line x1="4" y1="20" x2="20" y2="20"/></svg>Descargar copia de seguridad
             </button>
@@ -973,7 +978,7 @@ let chartRentHoy=null;
 let histFechaFiltro = '';   // formato YYYY-MM-DD (igual al <input type="date">)
 let histSemanaFiltro = '';  // formato YYYY-MM-DD (cualquier día de la semana deseada)
 let histMesFiltro = '';     // formato YYYY-MM
-function save(){ localStorage.setItem('dcbeer_v4',JSON.stringify(S)); try{ _syncSoon(); }catch(e){} }
+function save(){ localStorage.setItem('dcbeer_v4',JSON.stringify(S)); try{ _syncSoon(); }catch(e){} try{ _bkSoon(); }catch(e){} }
 
 // ════════════════════════════════════════
 // SINCRONIZACIÓN CON "DC BEER · GASTOS"
@@ -1065,6 +1070,7 @@ function rSyncEstado(){
   if(conectado&&last) t+=' Última sincronización: '+new Date(last).toLocaleString('es-CO',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})+'.';
   el.textContent=t;
   const er=document.getElementById('sync-error'); if(er){ er.textContent=_syncError||''; er.style.display=_syncError?'block':'none'; }
+  try{ rBkEstado(); }catch(e){}
 }
 async function syncConectar(){
   const email=(document.getElementById('sync-email').value||'').trim();
@@ -1076,6 +1082,7 @@ async function syncConectar(){
     await fb.au.signInWithEmailAndPassword(fb.auth,email,pass);
     try{ localStorage.setItem('dcbeer_sync','1'); localStorage.setItem('dcbeer_sync_email',email); }catch(e){}
     document.getElementById('sync-pass').value='';
+    _respaldarNube(true).catch(()=>{});
     const r=await _syncVentas(true);
     if(r.ok) toast(r.dias?('✅ Conectado — '+r.dias+' días enviados a Gastos'):'✅ Conectado (aún no hay ventas para enviar)');
     else toast('Conectado, pero no se pudo enviar. Revisa el aviso en rojo.');
@@ -1099,6 +1106,81 @@ async function syncDesconectar(){
 }
 // Al abrir el POS: si ya estaba conectado, enviar lo pendiente unos segundos después de cargar
 setTimeout(()=>{ if(_syncActivo()) _syncSoon(); },3000);
+
+// ════════════════════════════════════════
+// RESPALDO AUTOMÁTICO EN LA NUBE
+// Usa la misma conexión de Firebase que "Conectar con Gastos" (mismo correo).
+// Guarda una copia completa en respaldos_pos/ultimo y una copia rotativa por día
+// de la semana (sem_0 … sem_6). Se envía sola (cada ~15 min si hubo cambios) y
+// siempre al cerrar caja. Todo va en try/catch: si falla, el POS sigue normal.
+// ════════════════════════════════════════
+const BK_NODO='respaldos_pos', BK_INTERVALO=15*60*1000;
+let _bkTimer=null, _bkHash='', _bkError='';
+function _bkUltimaVez(){ try{ return parseInt(localStorage.getItem('dcbeer_bk_last')||'0')||0; }catch(e){ return 0; } }
+function _bkSoon(){
+  if(!_syncActivo()||_bkTimer) return;
+  const espera=Math.max(90*1000, BK_INTERVALO-(Date.now()-_bkUltimaVez()));
+  _bkTimer=setTimeout(()=>{ _bkTimer=null; _respaldarNube(false).catch(()=>{}); },espera);
+}
+async function _respaldarNube(forzar){
+  try{
+    if(!_syncActivo()) return {ok:false,motivo:'sin-conexion'};
+    if(!navigator.onLine){ _bkError='Sin internet: el respaldo se enviará cuando vuelva la conexión.'; try{ rBkEstado(); }catch(e){} return {ok:false,motivo:'offline'}; }
+    const fb=await _fbCargar();
+    if(!fb.auth.currentUser){ _bkError='Falta iniciar sesión en "Conectar con Gastos".'; try{ rBkEstado(); }catch(e){} return {ok:false,motivo:'sin-sesion'}; }
+    const json=JSON.stringify(S);
+    if(!forzar && json===_bkHash) return {ok:true,omitido:true};
+    if(json.length>8*1024*1024){ _bkError='El sistema pesa más de 8 MB; el respaldo en la nube no cabe. Descarga la copia manual y avísale a Claude.'; try{ rBkEstado(); }catch(e){} return {ok:false,motivo:'muy-grande'}; }
+    const ahora=Date.now();
+    const reg={fecha:ahora,fechaLegible:new Date(ahora).toLocaleString('es-CO'),version:4,bytes:json.length,datos:json};
+    await fb.d.update(fb.d.ref(fb.db,BK_NODO),{ultimo:reg,['sem_'+new Date(ahora).getDay()]:reg});
+    _bkHash=json; _bkError='';
+    try{ localStorage.setItem('dcbeer_bk_last',String(ahora)); }catch(e){}
+    try{ rBkEstado(); }catch(e){}
+    return {ok:true};
+  }catch(err){
+    const c=(err&&(err.code||err.message))||'error';
+    _bkError=/permission/i.test(c)?'Firebase no permite escribir en "'+BK_NODO+'". Hay que agregar esa regla en la consola de Firebase.':'No se pudo respaldar ('+c+'). Se reintentará.';
+    try{ rBkEstado(); }catch(e){}
+    return {ok:false,motivo:c};
+  }
+}
+async function respaldarAhora(){
+  if(!_syncActivo()){ toast('Primero conecta con Gastos (más abajo)'); return; }
+  const r=await _respaldarNube(true);
+  toast(r.ok?'☁ Respaldo guardado en la nube ✓':'No se pudo respaldar. Revisa el aviso en rojo.');
+}
+async function restaurarDesdeNube(){
+  try{
+    if(!_syncActivo()){ toast('Primero conecta con Gastos (más abajo)'); return; }
+    const fb=await _fbCargar();
+    if(!fb.auth.currentUser){ toast('Falta iniciar sesión'); return; }
+    const snap=await fb.d.get(fb.d.ref(fb.db,BK_NODO+'/ultimo'));
+    const reg=snap.val();
+    if(!reg||!reg.datos){ toast('No hay respaldo en la nube todavía'); return; }
+    if(!confirm('⚠ Vas a restaurar el respaldo de la nube del '+(reg.fechaLegible||'fecha desconocida')+'.\n\nEsto BORRARÁ los datos actuales de este dispositivo y los reemplazará por los del respaldo.\n\n¿Continuar?')) return;
+    const datos=JSON.parse(reg.datos);
+    if(!datos||!Array.isArray(datos.barriles)||!Array.isArray(datos.mesas)){ toast('❌ El respaldo en la nube no es válido'); return; }
+    S=datos; save();
+    toast('✅ Respaldo de la nube restaurado');
+    try{ rDash(); rConfig(); rTurno(); }catch(e){}
+  }catch(err){ toast('No se pudo leer el respaldo de la nube'); }
+}
+function rBkEstado(){
+  const el=document.getElementById('bk-estado'); if(!el) return;
+  const conectado=_syncActivo(), last=_bkUltimaVez();
+  const acc=document.getElementById('bk-acciones'); if(acc) acc.style.display=conectado?'block':'none';
+  let t;
+  if(!conectado) t='☁ Respaldo en la nube: desactivado. Conecta con Gastos (más abajo) para activarlo.';
+  else if(last) t='☁ Último respaldo en la nube: '+new Date(last).toLocaleString('es-CO',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})+'. Se actualiza solo.';
+  else t='☁ Respaldo automático activo. Aún no se ha enviado el primero.';
+  el.textContent=t;
+  const er=document.getElementById('bk-error'); if(er){ er.textContent=_bkError||''; er.style.display=_bkError?'block':'none'; }
+}
+window.addEventListener('online',()=>{ try{ if(_syncActivo()) _respaldarNube(false).catch(()=>{}); }catch(e){} });
+// Pedir al navegador que NO borre los datos del POS si se llena el almacenamiento
+try{ if(navigator.storage&&navigator.storage.persist) navigator.storage.persist(); }catch(e){}
+setTimeout(()=>{ try{ if(_syncActivo()){ _bkSoon(); rBkEstado(); } }catch(e){} },4000);
 
 // ════════════════════════════════════════
 // ICONOS SVG (línea fina, marca DC BEER)
@@ -1350,9 +1432,11 @@ function renderAlertaStock(){
 // prods: array [[nombre, {ventas, ganancia}], ...] ya ordenado.
 // mensajeVacio: texto a mostrar si no hay productos.
 // restantes / diasOp: opcionales, solo para el subtítulo del acumulado.
+function _sinGraficas(canvas){ canvas.style.display='none'; const c=canvas.parentElement; let m=c.querySelector('.chart-empty-msg'); if(!m){ m=document.createElement('p'); m.className='chart-empty-msg'; m.style.cssText='color:var(--text2);font-size:12px;text-align:center;padding:16px 0'; c.appendChild(m); } m.textContent='Las gráficas no están disponibles en este momento.'; m.style.display='block'; return null; }
 function _renderGraficaRentabilidad(canvasId, chartInstancePrevia, prods, mensajeVacio, restantes, diasOp){
   const canvas = document.getElementById(canvasId);
   const contenedor = canvas.parentElement;
+  if(typeof Chart==='undefined') return _sinGraficas(canvas);
 
   if(chartInstancePrevia){ chartInstancePrevia.destroy(); }
 
@@ -1661,6 +1745,7 @@ function _genColores(n){
 function _renderPie(canvasId, instancia, data, mensajeVacio, unidad){
   const canvas = document.getElementById(canvasId);
   const cont = canvas.parentElement;
+  if(typeof Chart==='undefined') return _sinGraficas(canvas);
   const msgEl = cont.querySelector('.chart-empty-msg');
   if(instancia){ instancia.destroy(); }
   if(!data||data.length===0||data.every(d=>d.val===0)){
@@ -1766,11 +1851,14 @@ function toggleBarril(bi){
   S.barriles.forEach((_,i)=>{ const e=document.getElementById('pres-'+i); if(e) e.style.display='none'; const a=document.getElementById('barril-arrow-'+i); if(a) a.textContent='▶'; });
   if(!visible){ el.style.display='block'; const a=document.getElementById('barril-arrow-'+bi); if(a) a.textContent='▼'; }
 }
+function _lineaAgotados(nombres){ return nombres.length?`<div class="agotados-line"><b>Agotados</b>${nombres.join(' · ')}</div>`:''; }
 function rComandaProds(){
   let bh='<div class="prod-sec-title" style="display:flex;align-items:center;gap:6px"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10l1.5 8L17 20H7l-1.5-8z"/><line x1="5.7" y1="8.5" x2="18.3" y2="8.5"/><line x1="5.7" y1="15.5" x2="18.3" y2="15.5"/></svg>Barril</div>';
   if(S.barriles.length===0) bh+='<p style="color:var(--text2);font-size:12px">Sin barriles. Agrega en Config.</p>';
+  const _agoB=S.barriles.filter(b=>b.litros<=0).map(b=>b.nombre);
   S.barriles.forEach((b,bi)=>{
-    const ago=b.litros<=0;
+    if(b.litros<=0) return; // los agotados van al final, en una sola línea
+    const ago=false;
     const pres=getPresArray(b);
     bh+=`<div style="margin-bottom:6px">
       <button class="prod-btn${ago?' agotado':''}" onclick="${ago?'void(0)':'toggleBarril('+bi+')'}" style="font-weight:700">
@@ -1785,6 +1873,7 @@ function rComandaProds(){
       </div>
     </div>`;
   });
+  bh+=_lineaAgotados(_agoB);
   document.getElementById('prod-barriles').innerHTML=`<div class="prod-sec">${bh}</div>`;
 
   // ── CATAS ──
@@ -1811,12 +1900,14 @@ function rComandaProds(){
 
   // ── LATAS ──
   let lh='<div class="prod-sec-title" style="display:flex;align-items:center;gap:6px"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3h8l1 4-1 13H8L7 7z"/><line x1="7.3" y1="7" x2="16.7" y2="7"/></svg>Latas</div>';
-  lh+=S.latas.map((l,li)=>{ const ago=l.stock<=0; return `<button class="prod-btn${ago?' agotado':''}" onclick="${ago?'void(0)':'addL('+li+')'}">${l.nombre}<span class="precio">${fmt(l.precio)}</span></button>`; }).join('')||'<p style="color:var(--text2);font-size:12px">Sin latas.</p>';
+  lh+=S.latas.map((l,li)=>{ if(l.stock<=0) return ''; return `<button class="prod-btn" onclick="addL(${li})">${l.nombre}<span class="precio">${fmt(l.precio)}</span></button>`; }).join('')||(S.latas.length?'':'<p style="color:var(--text2);font-size:12px">Sin latas.</p>');
+  lh+=_lineaAgotados(S.latas.filter(l=>l.stock<=0).map(l=>l.nombre));
   document.getElementById('prod-latas').innerHTML=`<div class="prod-sec">${lh}</div>`;
 
   // ── SNACKS ──
   let sh='<div class="prod-sec-title" style="display:flex;align-items:center;gap:6px"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9 12 4l7 5-2 11H7z"/><line x1="9" y1="11" x2="9" y2="17"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="15" y1="11" x2="15" y2="17"/></svg>Snacks</div>';
-  sh+=S.snacks.map((sn,si)=>{ const ago=sn.stock<=0; return `<button class="prod-btn${ago?' agotado':''}" onclick="${ago?'void(0)':'addSn('+si+')'}">${sn.nombre}<span class="precio">${fmt(sn.precio)}</span></button>`; }).join('')||'<p style="color:var(--text2);font-size:12px">Sin snacks.</p>';
+  sh+=S.snacks.map((sn,si)=>{ if(sn.stock<=0) return ''; return `<button class="prod-btn" onclick="addSn(${si})">${sn.nombre}<span class="precio">${fmt(sn.precio)}</span></button>`; }).join('')||(S.snacks.length?'':'<p style="color:var(--text2);font-size:12px">Sin snacks.</p>');
+  sh+=_lineaAgotados(S.snacks.filter(sn=>sn.stock<=0).map(sn=>sn.nombre));
   document.getElementById('prod-snacks').innerHTML=`<div class="prod-sec">${sh}</div>`;
 }
 function addB(bi,pi){ const b=S.barriles[bi]; const pres=getPresArray(b); const pr=pres[pi]; if(!pr) return; const m=S.mesas[curMesa]; const key='b_'+bi+'_'+pi; const ex=m.items.find(it=>it.key===key); if(ex) ex.qty++; else m.items.push({key,nombre:b.nombre+' '+pr.nombre,precio:pr.precio,precioOriginal:pr.precio,qty:1,tipo:'barril',barrilIdx:bi,ml:pr.ml,presentacion:pr.nombre,presIdx:pi}); save(); _aplicarPromociones(m); rComandaItems(); }
@@ -3275,6 +3366,7 @@ function confirmarCierreCaja(){
   S.ventas=[]; S.gastos=[]; S.mesas.forEach(m=>m.items=[]);
   S.turno = { abierto:false, baseApertura:0, horaApertura:'', fechaApertura:'' };
   save();
+  try{ _respaldarNube(true).catch(()=>{}); }catch(e){}
 
   const msgDiff = diferenciaTotal===0 ? 'todo exacto' : diferenciaTotal>0 ? `sobran ${fmt(diferenciaTotal)}` : `faltan ${fmt(Math.abs(diferenciaTotal))}`;
   toast(`✅ Caja cerrada — ${msgDiff}`);
@@ -3285,7 +3377,7 @@ function confirmarCierreCaja(){
 // ════════════════════════════════════════
 // CERRAR DÍA / RESETS
 // ════════════════════════════════════════
-function cerrarDia(){ const pwd=prompt('Clave para cerrar el día:'); if(pwd!=='DCBEER1815'){ toast('Clave incorrecta'); return; } const tot=S.ventas.reduce((a,v)=>a+v.total,0); const gan=S.ventas.reduce((a,v)=>a+gananciaVenta(v),0); const totG=S.gastos.reduce((a,g)=>a+g.valor,0); S.historial.push({fecha:fechaHoy(),numVentas:S.ventas.length,total:tot,ganancia:gan,gastos:totG,ventas:[...S.ventas],gastosDetalle:[...S.gastos]}); S.ventas=[]; S.gastos=[]; S.mesas.forEach(m=>m.items=[]); save(); toast('Día cerrado y guardado ✓'); rConfig(); }
+function cerrarDia(){ const pwd=prompt('Clave para cerrar el día:'); if(pwd!=='DCBEER1815'){ toast('Clave incorrecta'); return; } const tot=S.ventas.reduce((a,v)=>a+v.total,0); const gan=S.ventas.reduce((a,v)=>a+gananciaVenta(v),0); const totG=S.gastos.reduce((a,g)=>a+g.valor,0); S.historial.push({fecha:fechaHoy(),numVentas:S.ventas.length,total:tot,ganancia:gan,gastos:totG,ventas:[...S.ventas],gastosDetalle:[...S.gastos]}); S.ventas=[]; S.gastos=[]; S.mesas.forEach(m=>m.items=[]); save(); try{ _respaldarNube(true).catch(()=>{}); }catch(e){} toast('Día cerrado y guardado ✓'); rConfig(); }
 function resetStock(){ const pwd=prompt('Clave:'); if(pwd!=='DCBEER1815'){ toast('Clave incorrecta'); return; } S.barriles.forEach(b=>b.litros=b.litrosMax); S.latas.forEach(l=>l.stock=l.stockMax); S.snacks.forEach(sn=>sn.stock=sn.stockMax); save(); toast('Stock reseteado ✓'); rConfig(); }
 function reiniciarTodo(){ const pwd=prompt('Clave para reiniciar todo el sistema:'); if(pwd!=='DCBEER1815'){ toast('Clave incorrecta'); return; } if(!confirm('¿Seguro? Esto borra TODAS las ventas, historial, gastos y el turno de caja.')) return; S.ventas=[]; S.gastos=[]; S.historial=[]; S.anuladas=[]; S.mesas.forEach(m=>m.items=[]); S.barriles.forEach(b=>b.litros=b.litrosMax); S.latas.forEach(l=>l.stock=l.stockMax); S.snacks.forEach(sn=>sn.stock=sn.stockMax); S.turno={ abierto:false, baseApertura:0, horaApertura:'', fechaApertura:'' }; save(); toast('Sistema reiniciado ✓'); rConfig(); rTurno(); }
 
@@ -3293,6 +3385,7 @@ function reiniciarTodo(){ const pwd=prompt('Clave para reiniciar todo el sistema
 // EXPORTAR EXCEL
 // ════════════════════════════════════════
 function exportHoy(){
+  if(typeof XLSX==='undefined'){ toast('Excel no disponible por ahora'); return; }
   const wb=XLSX.utils.book_new();
   const vd=[['Hora','Fecha','Mesa','Productos','Método','Total Base','Recargo','Total Final','Ganancia','Nota']];
   S.ventas.forEach(v=>vd.push([v.hora,v.fecha,v.mesa,v.items.map(it=>it.nombre+' x'+it.qty).join(' | '),v.metodo,v.totalBase,v.recargo||0,v.total,Math.round(gananciaVenta(v)),v.nota||'']));
@@ -3316,6 +3409,7 @@ function exportHoy(){
   XLSX.writeFile(wb,'DCBEER_'+fechaHoy().replace(/\//g,'-')+'.xlsx'); toast('Excel descargado ✓');
 }
 function exportTodo(){
+  if(typeof XLSX==='undefined'){ toast('Excel no disponible por ahora'); return; }
   const wb=XLSX.utils.book_new();
   const todos=[...S.historial];
   if(S.ventas.length>0) todos.push({fecha:fechaHoy(),numVentas:S.ventas.length,total:S.ventas.reduce((a,v)=>a+v.total,0),ganancia:S.ventas.reduce((a,v)=>a+gananciaVenta(v),0),gastos:S.gastos.reduce((a,g)=>a+g.valor,0),ventas:S.ventas});
@@ -3398,6 +3492,7 @@ function restaurarBackup(input){
 // IMPORTAR
 // ════════════════════════════════════════
 function descargarPlantilla(){
+  if(typeof XLSX==='undefined'){ toast('Excel no disponible por ahora'); return; }
   const wb=XLSX.utils.book_new();
   const data=[['fecha','producto','presentacion','cantidad','precio_unitario','metodo_pago','mesa'],['01/06/2026','Honey Ale','Pinta',2,12000,'efectivo','Mesa 1'],['01/06/2026','Poker','',1,4500,'nequi','Barra'],['01/06/2026','Papas Caseras','',1,6000,'efectivo','Mesa 2']];
   const inst=[['INSTRUCCIONES'],[''],['fecha: DD/MM/YYYY'],['producto: nombre del producto'],['presentacion: Vaso, Pinta o Jarro (solo barriles)'],['cantidad: número de unidades'],['precio_unitario: precio de venta en pesos'],['metodo_pago: efectivo, nequi, mastercard, visa, diners, amex'],['mesa: Mesa 1, Mesa 2, Mesa 3, Mesa 4, Barra']];
@@ -3669,6 +3764,7 @@ function _splitProductoPresentacion(nombreCompleto){
   return {nombre:nombreCompleto,presentacion:''};
 }
 function importarExcel(input){
+  if(typeof XLSX==='undefined'){ toast('Excel no disponible por ahora'); input.value=''; return; }
   const file=input.files[0]; if(!file) return;
   const reader=new FileReader();
   reader.onload=function(e){
