@@ -557,6 +557,7 @@ if('serviceWorker' in navigator){
             <div id="cfg-promociones"></div>
           </div>
           <div class="card"><div class="cfg-sec-title">Barriles <button class="btn btn-gray btn-xs" onclick="openMB(null)">+ Agregar</button></div><div id="cfg-barriles"></div></div>
+          <div class="card"><div class="cfg-sec-title">Merma de barriles</div><div id="cfg-merma"></div></div>
           <div class="card"><div class="cfg-sec-title">Latas <button class="btn btn-gray btn-xs" onclick="openML(null)">+ Agregar</button></div><div id="cfg-latas"></div></div>
           <div class="card"><div class="cfg-sec-title">Snacks <button class="btn btn-gray btn-xs" onclick="openMS(null)">+ Agregar</button></div><div id="cfg-snacks"></div></div>
         </div>
@@ -976,6 +977,7 @@ let S=(()=>{ try{ const r=localStorage.getItem('dcbeer_v4'); if(r) return JSON.p
 // Compatibilidad: si el sistema ya existía antes de agregar Turno de Caja, no tiene este campo.
 if(!S.turno) S.turno = { abierto:false, baseApertura:0, horaApertura:'', fechaApertura:'' };
 if(!S.promociones) S.promociones = [];
+if(!S.mermas) S.mermas = [];  // historial de barriles vaciados (merma)
 if(!S.radler) S.radler = { precio:15000, jugoCosto:450, naranjaCosto:224 };
 let curMesa=null, curMetodo='efectivo', curHistTab='dia', curModoPago='simple';
 // Instancias de gráficas (hay que destruirlas antes de redibujar en el mismo canvas)
@@ -2880,6 +2882,7 @@ function histLimpiarMes(){ histMesFiltro = ''; rHistorial(); }
 // ════════════════════════════════════════
 function rConfig(){
   try{ rSyncEstado(); }catch(e){}
+  try{ rMerma(); }catch(e){}
   document.getElementById('cfg-base').value=S.config.baseCaja||100000;
   document.getElementById('cfg-recargo').value=S.config.recargo||6;
   const pc=S.config.preciosCata||{};
@@ -2997,14 +3000,74 @@ function doRecargar(){
   const litros=parseFloat(document.getElementById('rc-litros').value);
   if(!litros||litros<=0){ toast('Ingresa los litros a recargar'); return; }
   const b=S.barriles[idx];
+  // Si el sistema aún muestra litros y ya se vendió algo, lo más probable es que el barril anterior se acabó con merma
+  if(b.litros>0.05 && b.litrosMax-b.litros>0.05){
+    if(confirm('Antes de recargar: el barril anterior de '+b.nombre+' aún aparece con '+b.litros.toFixed(1)+' L en el sistema.\n\n'+_textoMerma(b)+'\n\n¿Ya está vacío?\n\nAceptar = guardar esa merma y empezar con el barril nuevo.\nCancelar = solo sumar los litros (por ejemplo, si el barril anterior NO está vacío).')){
+      _registrarMerma(b); b.litros=0;
+    }
+  }
   b.litros=Math.min(b.litrosMax, b.litros+litros);
   save(); closeModal('modal-recargar'); rConfig(); toast(b.nombre+' recargado ✓');
 }
+// ── MERMA: cerveza que el sistema esperaba vender pero se perdió (espuma, líneas, fondo del barril) ──
+const MERMA_ALTA = 12; // % a partir del cual se marca como "Alta"
+function _calcMerma(b){
+  const vendidos = Math.max(0, b.litrosMax - b.litros);
+  const merma = Math.max(0, b.litros);
+  const pct = b.litrosMax>0 ? merma/b.litrosMax*100 : 0;
+  const costoNominal = b.costoTotal && b.litrosMax ? b.costoTotal/b.litrosMax : 0;
+  const costoReal = b.costoTotal && vendidos>0 ? b.costoTotal/vendidos : 0;
+  return {vendidos, merma, pct, costoNominal, costoReal, perdido: merma*costoNominal};
+}
+function _textoMerma(b){
+  const m=_calcMerma(b);
+  return `Se vendieron ${m.vendidos.toFixed(1)} de ${b.litrosMax} L.\nSe perdieron ${m.merma.toFixed(1)} L (${m.pct.toFixed(1)}% de merma).`;
+}
+function _registrarMerma(b){
+  const m=_calcMerma(b);
+  if(!S.mermas) S.mermas=[];
+  S.mermas.push({
+    fecha:fechaHoy(), ts:Date.now(), barril:b.nombre, litrosMax:b.litrosMax,
+    vendidos:Math.round(m.vendidos*100)/100, merma:Math.round(m.merma*100)/100, pct:Math.round(m.pct*10)/10,
+    costoTotal:b.costoTotal||0, costoNominal:Math.round(m.costoNominal), costoReal:Math.round(m.costoReal), perdido:Math.round(m.perdido)
+  });
+}
 function vaciarBarril(i){
   const b=S.barriles[i]; if(!b) return;
-  if(!confirm('¿Vaciar '+b.nombre+'? Quedará en 0 L y no aparecerá disponible para ventas ni catas hasta que lo recargues.')) return;
+  if(!confirm('¿Vaciar '+b.nombre+'?\n\n'+_textoMerma(b)+'\n\nSe guardará en "Merma de barriles". Quedará en 0 L y no aparecerá disponible para ventas ni catas hasta que lo recargues.')) return;
+  _registrarMerma(b);
   b.litros=0;
-  save(); rConfig(); toast(b.nombre+' vaciado ✓');
+  save(); rConfig(); toast(b.nombre+' vaciado — merma guardada ✓');
+}
+function delMerma(k){ const m=S.mermas[k]; if(!m) return; if(!confirm('¿Borrar este registro de merma ('+m.barril+', '+m.fecha+')?')) return; S.mermas.splice(k,1); save(); rConfig(); }
+function rMerma(){
+  const cont=document.getElementById('cfg-merma'); if(!cont) return;
+  const ms=S.mermas||[];
+  if(ms.length===0){
+    cont.innerHTML='<p style="color:var(--text2);font-size:12px;line-height:1.6">Aquí verás cuánta cerveza se pierde en cada barril. Se registra sola cuando usas <b>Vaciar</b>, o cuando <b>Recargas</b> un barril que el sistema todavía muestra con litros.</p>';
+    return;
+  }
+  const totMax=ms.reduce((a,m)=>a+m.litrosMax,0), totMerma=ms.reduce((a,m)=>a+m.merma,0), totPerd=ms.reduce((a,m)=>a+(m.perdido||0),0);
+  const prom=totMax>0?Math.round(totMerma/totMax*1000)/10:0;
+  const chip=(pct)=>pct>MERMA_ALTA?'<span style="background:rgba(231,76,60,.18);color:var(--red-light);font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px">ALTA</span>':'<span style="background:rgba(46,204,113,.15);color:var(--green-light);font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px">NORMAL</span>';
+  const filas=ms.map((m,k)=>({m,k})).reverse().slice(0,20).map(({m,k})=>`
+    <div class="cfg-item" style="display:block">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px">
+        <div><span class="cfg-item-name">${_esc(m.barril)}</span> <span style="font-size:11px;color:var(--text3)">· ${m.fecha}</span></div>
+        <div style="display:flex;align-items:center;gap:8px">${chip(m.pct)}<button class="btn-del-sm btn-xs" onclick="delMerma(${k})">✕</button></div>
+      </div>
+      <div style="font-size:12px;color:var(--text2);line-height:1.7">
+        Vendiste <b style="color:var(--text)">${m.vendidos.toFixed(1)} L</b> de ${m.litrosMax} L<br>
+        Se perdieron <b style="color:${m.pct>MERMA_ALTA?'var(--red-light)':'var(--text)'}">${m.merma.toFixed(1)} L (${m.pct.toFixed(1)}%)</b>${m.perdido?` · ≈ ${fmt(m.perdido)} en cerveza`:''}
+        ${m.costoReal?`<br>Costo real por litro vendido: <b style="color:var(--text)">${fmt(m.costoReal)}</b> <span style="color:var(--text3)">(esperado ${fmt(m.costoNominal)})</span>`:''}
+      </div>
+    </div>`).join('');
+  cont.innerHTML=`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+      <div style="flex:1;min-width:120px;background:var(--surf2);border:1px solid var(--border2);border-radius:8px;padding:10px 12px"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1px">Merma promedio</div><div style="font-size:20px;font-weight:900;color:${prom>MERMA_ALTA?'var(--red-light)':'var(--green-light)'}">${prom.toFixed(1)}%</div><div style="font-size:11px;color:var(--text2)">${ms.length} barril(es) vaciado(s)</div></div>
+      <div style="flex:1;min-width:120px;background:var(--surf2);border:1px solid var(--border2);border-radius:8px;padding:10px 12px"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1px">Cerveza perdida</div><div style="font-size:20px;font-weight:900;color:var(--oro-light)">${totMerma.toFixed(1)} L</div><div style="font-size:11px;color:var(--text2)">≈ ${fmt(totPerd)}</div></div>
+    </div>
+    <p style="font-size:11px;color:var(--text3);margin-bottom:10px">Normal: hasta ${MERMA_ALTA}% de merma. Más de eso se marca como alta.</p>
+    ${filas}`;
 }
 function delBarril(i){ if(!confirm('¿Eliminar '+S.barriles[i].nombre+'?')) return; S.barriles.splice(i,1); save(); rConfig(); }
 
