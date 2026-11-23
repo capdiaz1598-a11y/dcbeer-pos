@@ -96,6 +96,19 @@ html,body{height:100%;overflow:hidden;font-family:'Segoe UI',system-ui,sans-seri
 .prod-btn:hover{background:var(--surf4);border-color:var(--cobre)}
 .prod-btn .precio{color:var(--oro-light);font-weight:700;font-size:13px}
 .prod-btn.agotado{opacity:.3;cursor:not-allowed}
+.alerta-barriles{margin-bottom:14px}
+.alerta-barriles:empty{display:none}
+.ab-box{display:flex;gap:12px;align-items:stretch;background:linear-gradient(135deg,rgba(192,57,43,.20),rgba(120,30,20,.12));border:1px solid rgba(231,76,60,.55);border-left:5px solid var(--red-light);border-radius:10px;padding:12px 14px;animation:abPulso 2.4s ease-in-out infinite}
+.ab-box.agotado{background:linear-gradient(135deg,rgba(150,20,20,.38),rgba(90,15,15,.22));border-color:var(--red-light)}
+@keyframes abPulso{0%,100%{box-shadow:0 0 0 0 rgba(231,76,60,0)}50%{box-shadow:0 0 0 4px rgba(231,76,60,.18)}}
+.ab-ico{color:var(--red-light);flex-shrink:0;display:flex;align-items:center}
+.ab-tit{font-size:11px;font-weight:900;letter-spacing:1.6px;text-transform:uppercase;color:var(--red-light);margin-bottom:6px}
+.ab-fila{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:4px 0;font-size:13px;flex-wrap:wrap}
+.ab-nom{font-weight:800;color:var(--text)}
+.ab-det{color:var(--text2);font-size:12px}
+.ab-lit{font-weight:900;color:var(--red-light);font-size:15px}
+.ab-barra{height:5px;border-radius:3px;background:rgba(255,255,255,.08);overflow:hidden;width:100%;margin-top:3px}
+.ab-barra>div{height:100%;background:var(--red-light)}
 .mesa-apodo{font-size:13px;font-weight:800;color:var(--oro-light);margin-top:2px;line-height:1.2;word-break:break-word}
 .comanda-apodo{margin-top:6px;width:100%;max-width:260px;background:rgba(0,0,0,.25);border:1px solid var(--border2);border-radius:6px;color:var(--oro-light);font-size:13px;font-weight:700;padding:6px 10px}
 .comanda-apodo::placeholder{color:var(--text3);font-weight:400}
@@ -363,6 +376,7 @@ if('serviceWorker' in navigator){
     <!-- DASHBOARD -->
     <div class="page active" id="page-dashboard">
       <div id="alerta-jornada"></div>
+      <div class="alerta-barriles"></div>
       <div id="alerta-stock"></div>
       <!-- Filtro de período -->
       <div style="display:flex;gap:6px;margin-bottom:10px;align-items:center;flex-wrap:wrap">
@@ -411,6 +425,7 @@ if('serviceWorker' in navigator){
 
     <!-- MESAS -->
     <div class="page" id="page-mesas">
+      <div class="alerta-barriles"></div>
       <div class="tables-grid" id="tables-grid"></div>
     </div>
 
@@ -486,6 +501,7 @@ if('serviceWorker' in navigator){
               <div class="form-row"><label class="form-lbl">Precio Cata 1L ($)</label><input class="form-inp" id="cfg-cata1L" type="number" placeholder="Ej: 45000"></div>
               <div class="form-row"><label class="form-lbl">Precio Cata 2L ($)</label><input class="form-inp" id="cfg-cata2L" type="number" placeholder="Ej: 75000"></div>
             </div>
+            <div class="form-row"><label class="form-lbl">Avisar de barril casi vacío cuando queden (L)</label><input class="form-inp" id="cfg-alerta-barril" type="number" step="0.5" min="0.5" placeholder="3"></div>
             <button class="btn btn-oro btn-sm" onclick="saveConfig()">Guardar parámetros</button>
           </div>
           <div class="card">
@@ -542,8 +558,6 @@ if('serviceWorker' in navigator){
           </div>
           <div class="danger-zone">
             <div class="danger-title"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M12 3.5 21 19.5H3z"/><line x1="12" y1="9.5" x2="12" y2="14"/><line x1="12" y1="16.7" x2="12" y2="16.7"/></svg>Zona de peligro</div>
-            <button class="btn btn-red btn-sm" onclick="cerrarDia()" style="width:100%;margin-bottom:8px"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><rect x="5" y="11" width="14" height="9" rx="1.5"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Cerrar día → guardar en historial</button>
-            <p style="font-size:11px;color:var(--text2);margin-bottom:10px">Guarda ventas y caja en historial. El stock NO se resetea.</p>
             <button class="btn btn-gray btn-sm" onclick="resetStock()" style="width:100%;margin-bottom:8px"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M3.5 7.5 12 3l8.5 4.5v9L12 21l-8.5-4.5z"/><path d="M3.5 7.5 12 12l8.5-4.5"/><line x1="12" y1="12" x2="12" y2="21"/></svg>Resetear stock al máximo</button>
             <hr style="border-color:rgba(192,57,43,.3);margin:10px 0">
             <button class="btn btn-red btn-sm" onclick="reiniciarTodo()" style="width:100%"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M5 7h14l-1.2 13.5a1.5 1.5 0 0 1-1.5 1.5H7.7a1.5 1.5 0 0 1-1.5-1.5z"/><line x1="3.5" y1="7" x2="20.5" y2="7"/><path d="M9 7V4.5A1.5 1.5 0 0 1 10.5 3h3A1.5 1.5 0 0 1 15 4.5V7"/></svg>Borrar TODO y empezar de cero</button>
@@ -574,11 +588,12 @@ if('serviceWorker' in navigator){
     <div class="comanda-hdr">
       <div style="min-width:0;flex:1;margin-right:12px">
         <h2 id="comanda-title">Mesa</h2>
-        <input class="comanda-apodo" id="comanda-apodo" type="text" maxlength="30" placeholder="Sobrenombre (opcional): Juan, el de la gorra…" autocomplete="off" oninput="setApodoMesa(this.value)">
+        <input class="comanda-apodo" id="comanda-apodo" type="text" maxlength="30" placeholder="Sobrenombre (opcional)" autocomplete="off" oninput="setApodoMesa(this.value)">
       </div>
       <button class="close-btn" onclick="closeComanda()">✕ Cerrar</button>
     </div>
     <div class="comanda-body">
+      <div class="alerta-barriles"></div>
       <div id="prod-barriles"></div>
       <div id="prod-catas"></div>
       <div id="prod-cocteles"></div>
@@ -1376,9 +1391,9 @@ function renderAlertaJornada(){
     cont.innerHTML = `<div class="banner b-yellow" style="display:flex;align-items:center;justify-content:space-between;gap:10px;text-align:left;margin-bottom:16px">
       <span style="display:flex;align-items:center;gap:8px">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M12 3.5 21 19.5H3z"/><line x1="12" y1="9.5" x2="12" y2="14"/><line x1="12" y1="16.7" x2="12" y2="16.7"/></svg>
-        <span>Tienes una jornada abierta desde el <strong>${fechaJornada}</strong> (${diffDias} día${diffDias>1?'s':''} sin cerrar). Revisa y cierra el día cuando termines de hacer arqueo.</span>
+        <span>Tienes una jornada abierta desde el <strong>${fechaJornada}</strong> (${diffDias} día${diffDias>1?'s':''} sin cerrar). Cierra la caja con arqueo cuando termines el turno.</span>
       </span>
-      <button class="btn btn-gray btn-xs" onclick="goPage('config',document.getElementById('nav-config'))" style="flex-shrink:0;white-space:nowrap">Ir a cerrar</button>
+      <button class="btn btn-gray btn-xs" onclick="goPage('turno',document.getElementById('nav-turno'))" style="flex-shrink:0;white-space:nowrap">Ir a cerrar caja</button>
     </div>`;
   } else {
     cont.innerHTML = '';
@@ -1388,6 +1403,44 @@ function renderAlertaJornada(){
 // ════════════════════════════════════════
 // ALERTA: stock crítico (rojo en el semáforo)
 // ════════════════════════════════════════
+// ════════════════════════════════════════
+// ALERTA: barril casi vacío (visible en Dashboard, Mesas y Comanda)
+// El aviso aparece cuando quedan <= X litros (se ajusta en Configuración; por defecto 3 L).
+// ════════════════════════════════════════
+function _umbralBarril(){ const u=parseFloat(S.config&&S.config.alertaBarrilL); return (u>0)?u:3; }
+function _pintasRestantes(b){
+  const pres=getPresArray(b)||[]; const pinta=pres.find(x=>/pinta/i.test(x.nombre))||pres[0];
+  const ml=(pinta&&pinta.ml)||590; return Math.floor(b.litros*1000/ml);
+}
+function _barrilesBajos(){ const u=_umbralBarril(); return S.barriles.filter(b=>b.litros<=u); }
+function renderAlertaBarriles(){
+  const bajos=_barrilesBajos();
+  const html = bajos.length===0 ? '' : (()=>{
+    const hayAgotado=bajos.some(b=>b.litros<=0);
+    const u=_umbralBarril();
+    const filas=bajos.sort((a,b)=>a.litros-b.litros).map(b=>{
+      const ago=b.litros<=0;
+      const pct=b.litrosMax>0?Math.max(0,Math.min(100,b.litros/b.litrosMax*100)):0;
+      return `<div class="ab-fila" style="display:block">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+          <span class="ab-nom">${_esc(b.nombre)}</span>
+          <span>${ago?'<span class="ab-lit">AGOTADO</span>':`<span class="ab-lit">${b.litros.toFixed(1)} L</span> <span class="ab-det">· alcanza para ≈ ${_pintasRestantes(b)} pinta(s)</span>`}</span>
+        </div>
+        <div class="ab-barra"><div style="width:${pct}%"></div></div>
+      </div>`;
+    }).join('');
+    return `<div class="ab-box${hayAgotado?' agotado':''}">
+      <div class="ab-ico">${icon('barril',30,'var(--red-light)')}</div>
+      <div style="flex:1;min-width:0">
+        <div class="ab-tit">${hayAgotado?'Barril agotado — cambia el barril':'Barril por acabarse — prepara el cambio'}</div>
+        ${filas}
+        <div class="ab-det" style="margin-top:6px">Aviso cuando quedan ${u} L o menos.</div>
+      </div>
+    </div>`;
+  })();
+  document.querySelectorAll('.alerta-barriles').forEach(el=>{ el.innerHTML=html; });
+}
+
 function renderAlertaStock(){
   const cont = document.getElementById('alerta-stock');
   if(!cont) return;
@@ -1400,7 +1453,7 @@ function renderAlertaStock(){
     if(p<=10) criticos.push(txt);
     else if(p<=30) advertencia.push(txt);
   };
-  S.barriles.forEach(b=>evaluar(b.nombre, b.litros, b.litrosMax, 'L'));
+  S.barriles.forEach(b=>{ if(b.litros>_umbralBarril()) evaluar(b.nombre, b.litros, b.litrosMax, 'L'); }); // los barriles casi vacíos ya tienen su propia alerta
   S.latas.forEach(l=>evaluar(l.nombre, l.stock, l.stockMax, 'u'));
   S.snacks.forEach(sn=>evaluar(sn.nombre, sn.stock, sn.stockMax, 'u'));
 
@@ -1660,6 +1713,7 @@ function _dashData(){
 
 function rDash(){
   renderAlertaJornada();
+  renderAlertaBarriles();
   renderAlertaStock();
 
   const {todasVentas, label, totalV, totalG, nV, diasOp} = _dashData();
@@ -1820,6 +1874,7 @@ function _renderPie(canvasId, instancia, data, mensajeVacio, unidad){
 // MESAS
 // ════════════════════════════════════════
 function rMesas(){
+  try{ renderAlertaBarriles(); }catch(e){}
   document.getElementById('tables-grid').innerHTML=S.mesas.map((m,i)=>{
     const tot=mesaTot(m); const ocu=m.items&&m.items.length>0;
     const tieneCataPend=ocu&&m.items.some(it=>it.tipo==='cata'&&it.cataPendiente);
@@ -1867,6 +1922,7 @@ function toggleBarril(bi){
 }
 function _lineaAgotados(nombres){ return nombres.length?`<div class="agotados-line"><b>Agotados</b>${nombres.join(' · ')}</div>`:''; }
 function rComandaProds(){
+  try{ renderAlertaBarriles(); }catch(e){}
   let bh='<div class="prod-sec-title" style="display:flex;align-items:center;gap:6px"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10l1.5 8L17 20H7l-1.5-8z"/><line x1="5.7" y1="8.5" x2="18.3" y2="8.5"/><line x1="5.7" y1="15.5" x2="18.3" y2="15.5"/></svg>Barril</div>';
   if(S.barriles.length===0) bh+='<p style="color:var(--text2);font-size:12px">Sin barriles. Agrega en Config.</p>';
   const _agoB=S.barriles.filter(b=>b.litros<=0).map(b=>b.nombre);
@@ -1876,7 +1932,7 @@ function rComandaProds(){
     const pres=getPresArray(b);
     bh+=`<div style="margin-bottom:6px">
       <button class="prod-btn${ago?' agotado':''}" onclick="${ago?'void(0)':'toggleBarril('+bi+')'}" style="font-weight:700">
-        <span>${b.nombre} <span style="font-size:10px;color:var(--text3)">${b.litros.toFixed(1)}L disponibles</span></span>
+        <span>${b.nombre} <span style="font-size:10px;${b.litros<=_umbralBarril()?'color:var(--red-light);font-weight:800':'color:var(--text3)'}">${b.litros<=_umbralBarril()?'¡Solo quedan ':''}${b.litros.toFixed(1)}L${b.litros<=_umbralBarril()?'!':' disponibles'}</span></span>
         <span style="display:flex;align-items:center;gap:8px"><span style="font-size:10px;color:var(--text2)">${ago?'AGOTADO':'Seleccionar ▶'}</span><span id="barril-arrow-${bi}" style="color:var(--oro);font-size:11px"></span></span>
       </button>
       <div id="pres-${bi}" style="display:none" class="pres-grid">
@@ -2291,7 +2347,9 @@ function confirmarPago(){
     const esTarj = TARJETAS.includes(curMetodo);
     const totF = esTarj ? Math.round(tot*(1+rec/100)) : tot;
     const promosEnEstaVenta = [...new Set(m.items.filter(it=>it.promoAplicada).map(it=>it.promoAplicada))];
+    const _bajosAntes=new Set(_barrilesBajos().map(b=>b.nombre));
     _descontarStock(m.items);
+    _avisarBarrilBajo(_bajosAntes);
     S.ventas.push({
       hora, hora24, fecha:fechaHoy(), mesa:m.nombre, apodo:(m.apodo||undefined),
       items:[...m.items], metodo:curMetodo,
@@ -2345,7 +2403,9 @@ function confirmarPago(){
     const metodosUsados = Object.keys(pagos).join('+');
     const promosEnEstaVentaMixta = [...new Set(m.items.filter(it=>it.promoAplicada).map(it=>it.promoAplicada))];
 
+    const _bajosAntesM=new Set(_barrilesBajos().map(b=>b.nombre));
     _descontarStock(m.items);
+    _avisarBarrilBajo(_bajosAntesM);
     S.ventas.push({
       hora, hora24, fecha:fechaHoy(), mesa:m.nombre, apodo:(m.apodo||undefined),
       items:[...m.items],
@@ -2363,6 +2423,12 @@ function confirmarPago(){
   }
 }
 
+// Si con esta venta algún barril cruzó el umbral, avisa con un mensaje extra (después del de pago)
+function _avisarBarrilBajo(antes){
+  try{ const nuevos=_barrilesBajos().filter(b=>!antes.has(b.nombre)); if(!nuevos.length) return;
+    const t=nuevos.map(b=>b.litros<=0?b.nombre+' se AGOTÓ':b.nombre+' casi vacío ('+b.litros.toFixed(1)+' L)').join(' · ');
+    setTimeout(()=>toast('⚠ '+t+' — prepara el cambio de barril'),2700); }catch(e){}
+}
 function _descontarStock(items){
   items.forEach(it=>{
     if(it.tipo==='barril'){ const b=S.barriles[it.barrilIdx]; if(b) b.litros=Math.max(0,b.litros-(it.ml/1000)*it.qty); }
@@ -2885,6 +2951,7 @@ function rConfig(){
   try{ rMerma(); }catch(e){}
   document.getElementById('cfg-base').value=S.config.baseCaja||100000;
   document.getElementById('cfg-recargo').value=S.config.recargo||6;
+  document.getElementById('cfg-alerta-barril').value=S.config.alertaBarrilL||3;
   const pc=S.config.preciosCata||{};
   document.getElementById('cfg-cata1L').value=pc.litro1||'';
   document.getElementById('cfg-cata2L').value=pc.litro2||'';
@@ -2917,6 +2984,7 @@ function rConfig(){
 function saveConfig(){
   S.config.baseCaja=parseFloat(document.getElementById('cfg-base').value)||100000;
   S.config.recargo=parseFloat(document.getElementById('cfg-recargo').value)||6;
+  S.config.alertaBarrilL=parseFloat(document.getElementById('cfg-alerta-barril').value)||3;
   if(!S.config.preciosCata) S.config.preciosCata={};
   S.config.preciosCata.litro1=parseFloat(document.getElementById('cfg-cata1L').value)||0;
   S.config.preciosCata.litro2=parseFloat(document.getElementById('cfg-cata2L').value)||0;
@@ -3494,7 +3562,6 @@ function confirmarCierreCaja(){
 // ════════════════════════════════════════
 // CERRAR DÍA / RESETS
 // ════════════════════════════════════════
-function cerrarDia(){ const pwd=prompt('Clave para cerrar el día:'); if(pwd!=='DCBEER1815'){ toast('Clave incorrecta'); return; } const tot=S.ventas.reduce((a,v)=>a+v.total,0); const gan=S.ventas.reduce((a,v)=>a+gananciaVenta(v),0); const totG=S.gastos.reduce((a,g)=>a+g.valor,0); S.historial.push({fecha:fechaHoy(),numVentas:S.ventas.length,total:tot,ganancia:gan,gastos:totG,ventas:[...S.ventas],gastosDetalle:[...S.gastos]}); S.ventas=[]; S.gastos=[]; S.mesas.forEach(m=>{ m.items=[]; m.apodo=''; }); save(); try{ _respaldarNube(true).catch(()=>{}); }catch(e){} toast('Día cerrado y guardado ✓'); rConfig(); }
 function resetStock(){ const pwd=prompt('Clave:'); if(pwd!=='DCBEER1815'){ toast('Clave incorrecta'); return; } S.barriles.forEach(b=>b.litros=b.litrosMax); S.latas.forEach(l=>l.stock=l.stockMax); S.snacks.forEach(sn=>sn.stock=sn.stockMax); save(); toast('Stock reseteado ✓'); rConfig(); }
 function reiniciarTodo(){ const pwd=prompt('Clave para reiniciar todo el sistema:'); if(pwd!=='DCBEER1815'){ toast('Clave incorrecta'); return; } if(!confirm('¿Seguro? Esto borra TODAS las ventas, historial, gastos y el turno de caja.')) return; S.ventas=[]; S.gastos=[]; S.historial=[]; S.anuladas=[]; S.mesas.forEach(m=>{ m.items=[]; m.apodo=''; }); S.barriles.forEach(b=>b.litros=b.litrosMax); S.latas.forEach(l=>l.stock=l.stockMax); S.snacks.forEach(sn=>sn.stock=sn.stockMax); S.turno={ abierto:false, baseApertura:0, horaApertura:'', fechaApertura:'' }; save(); toast('Sistema reiniciado ✓'); rConfig(); rTurno(); }
 
