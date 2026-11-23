@@ -109,6 +109,26 @@ html,body{height:100%;overflow:hidden;font-family:'Segoe UI',system-ui,sans-seri
 .ab-lit{font-weight:900;color:var(--red-light);font-size:15px}
 .ab-barra{height:5px;border-radius:3px;background:rgba(255,255,255,.08);overflow:hidden;width:100%;margin-top:3px}
 .ab-barra>div{height:100%;background:var(--red-light)}
+.sel-ayuda{font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:12px;background:var(--surf2);border:1px solid var(--border2);border-radius:8px;padding:9px 12px}
+.sel-ayuda b{color:var(--oro-light)}
+.sel-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;background:var(--surf2);transition:all .15s}
+.sel-row.on{border-color:var(--oro);background:rgba(200,146,42,.12)}
+.sel-row.bloq{opacity:.55}
+.sel-nom{flex:1;min-width:0;cursor:pointer;font-size:13px;font-weight:700;line-height:1.3}
+.sel-sub{font-size:11px;color:var(--text3);font-weight:400;margin-top:2px}
+.sel-cant{display:flex;align-items:center;gap:7px;flex-shrink:0}
+.sel-de{font-size:11px;color:var(--text3)}
+.sel-dest-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;margin-bottom:12px}
+.sel-dest{background:var(--surf3);border:2px solid var(--border);border-radius:8px;padding:9px 8px;color:var(--text);cursor:pointer;text-align:left;font-size:12px;line-height:1.35}
+.sel-dest:hover{border-color:var(--cobre)}
+.sel-dest.on{border-color:var(--oro);background:rgba(200,146,42,.13)}
+.sel-dest small{display:block;color:var(--text3);font-size:10px;margin-top:2px}
+.sel-dest .ap{color:var(--oro-light);font-weight:700;font-size:11px}
+.sel-resumen{background:var(--surf2);border:1px solid var(--border2);border-radius:8px;padding:10px 12px;margin:12px 0;font-size:13px;line-height:1.7}
+.sel-resumen b{color:var(--oro-light)}
+.sel-aviso{font-size:11px;color:var(--yellow);margin-top:4px;line-height:1.5}
+.btn[disabled]{opacity:.4;cursor:not-allowed;pointer-events:none}
+.sel-igual{border:1px dashed var(--border2);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:var(--text2);line-height:1.6}
 .mesa-apodo{font-size:13px;font-weight:800;color:var(--oro-light);margin-top:2px;line-height:1.2;word-break:break-word}
 .comanda-apodo{margin-top:6px;width:100%;max-width:260px;background:rgba(0,0,0,.25);border:1px solid var(--border2);border-radius:6px;color:var(--oro-light);font-size:13px;font-weight:700;padding:6px 10px}
 .comanda-apodo::placeholder{color:var(--text3);font-weight:400}
@@ -439,6 +459,7 @@ if('serviceWorker' in navigator){
           <tfoot id="ventas-tfoot"></tfoot>
         </table>
         <p id="ventas-empty" style="color:var(--text2);font-size:13px;padding:14px">Sin ventas hoy.</p>
+        <p style="color:var(--text3);font-size:12px;padding:6px 14px 2px;line-height:1.6">💡 Aquí puedes anular ventas de la caja abierta. Para anular un cobro de un día que <b>ya cerraste</b>, ve a <b>Historial → Diario</b>, abre ese día y pulsa <b>Anular</b> en el cobro.</p>
       </div>
     </div>
 
@@ -610,6 +631,47 @@ if('serviceWorker' in navigator){
         <button class="btn btn-oro" onclick="openPago()" style="flex:2;margin-top:0"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><rect x="2.5" y="5" width="19" height="14" rx="2"/><line x1="2.5" y1="9.5" x2="21.5" y2="9.5"/></svg>Cobrar</button>
         <button class="btn btn-gray" onclick="limpiarMesa()" style="flex:1;margin-top:0"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:3px"><path d="M5 7h14l-1.2 13.5a1.5 1.5 0 0 1-1.5 1.5H7.7a1.5 1.5 0 0 1-1.5-1.5z"/><line x1="3.5" y1="7" x2="20.5" y2="7"/></svg>Limpiar</button>
       </div>
+      <div id="comanda-extra" style="display:none;gap:8px;margin-top:8px"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ DIVIDIR CUENTA / PASAR PRODUCTOS ══════════════ -->
+<div class="modal-ov" id="sel-ov" onclick="if(event.target===this)cerrarSel()">
+  <div class="modal" style="max-width:480px">
+    <div class="pago-title" id="sel-title"></div>
+    <div class="pago-mesa" id="sel-sub"></div>
+    <div class="sel-ayuda" id="sel-ayuda"></div>
+    <div id="sel-dest"></div>
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      <button class="btn btn-gray btn-xs" onclick="selTodo(true)" style="width:auto">Seleccionar todo</button>
+      <button class="btn btn-gray btn-xs" onclick="selTodo(false)" style="width:auto">Quitar selección</button>
+    </div>
+    <div id="sel-items"></div>
+    <div class="sel-resumen" id="sel-resumen"></div>
+    <div id="sel-igual"></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-oro" id="sel-ok" onclick="selConfirmar()" style="flex:2;margin-top:0"></button>
+      <button class="btn btn-gray" onclick="cerrarSel()" style="flex:1;margin-top:0">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ ANULAR VENTA DE UN DÍA CERRADO ══════════════ -->
+<div class="modal-ov" id="anu-ov" onclick="if(event.target===this)cerrarAnu()">
+  <div class="modal">
+    <div class="pago-title" style="color:var(--red-light)">Anular venta de un día cerrado</div>
+    <div class="sel-ayuda" id="anu-resumen" style="margin-top:10px"></div>
+    <div class="form-row"><label class="form-lbl">¿Por qué se anula? (obligatorio)</label><input class="form-inp" id="anu-motivo" type="text" maxlength="120" placeholder="Ej: se cobró dos veces, mesa equivocada…" autocomplete="off"></div>
+    <label style="display:flex;gap:10px;align-items:flex-start;margin:4px 0 14px;cursor:pointer">
+      <input type="checkbox" id="anu-stock" checked style="margin-top:3px">
+      <span style="font-size:13px;line-height:1.5">Devolver los productos al stock<br><span style="font-size:11px;color:var(--text3)">Déjalo marcado si fue un error de registro y esos productos NO se consumieron. Desmárcalo si ya se sirvieron o si el barril ya se cambió.</span></span>
+    </label>
+    <div class="form-row"><label class="form-lbl">Clave de caja</label><input class="form-inp" id="anu-clave" type="password" autocomplete="off"></div>
+    <div id="anu-error" style="display:none;font-size:12px;color:var(--red-light);margin-bottom:10px"></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-red" onclick="confirmarAnularCerrada()" style="flex:2;margin-top:0">Anular venta</button>
+      <button class="btn btn-gray" onclick="cerrarAnu()" style="flex:1;margin-top:0">Cancelar</button>
     </div>
   </div>
 </div>
@@ -1903,6 +1965,135 @@ function _esc(t){ return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g
 // Texto de mesa + sobrenombre. html=true escapa para insertarlo en la pantalla.
 function _mesaTxt(v,html){ const ap=(v&&v.apodo)?String(v.apodo):''; const base=v.mesa||''; if(!html) return ap?base+' ('+ap+')':base; return ap?_esc(base)+' <span style="color:var(--oro-light);font-weight:700">· '+_esc(ap)+'</span>':_esc(base); }
 function setApodoMesa(v){ if(curMesa==null) return; S.mesas[curMesa].apodo=String(v||'').trim().slice(0,30); save(); }
+// ════════════════════════════════════════
+// DIVIDIR LA CUENTA  y  PASAR PRODUCTOS A OTRA MESA
+// Misma pantalla de selección para las dos: eliges productos y cantidades.
+//  - Dividir: lo elegido se cobra ahora (con cualquier medio de pago); lo demás queda en la mesa.
+//  - Pasar: lo elegido se mueve a otra mesa (no se cobra nada).
+// ════════════════════════════════════════
+let pagoParcial=null, pagoParcialSel=null, _restoTrasPago=null;
+let selModo='dividir', selCant={}, selDestino=null;
+function _itemsPago(){ return pagoParcial || ((S.mesas[curMesa]&&S.mesas[curMesa].items)||[]); }
+function _totPago(){ return _itemsPago().reduce((a,it)=>a+it.precio*it.qty,0); }
+function _clon(o){ return JSON.parse(JSON.stringify(o)); }
+function _esPendiente(it){ return it.tipo==='cata'&&it.cataPendiente; }
+function _calcPartes(){
+  const m=S.mesas[curMesa]; const parte=[], resto=[];
+  m.items.forEach(it=>{
+    const q=selCant[it.key]||0;
+    if(q>0){ const c=_clon(it); c.qty=q; parte.push(c); }
+    const r=it.qty-q; if(r>0){ const c=_clon(it); c.qty=r; resto.push(c); }
+  });
+  // Las promociones se vuelven a calcular en cada cuenta por separado
+  _aplicarPromociones({items:parte}); _aplicarPromociones({items:resto});
+  const tot=a=>a.reduce((x,it)=>x+it.precio*it.qty,0);
+  return {parte, resto, totParte:tot(parte), totResto:tot(resto)};
+}
+function abrirSel(modo){
+  const m=S.mesas[curMesa];
+  if(!m||!m.items||m.items.length===0){ toast('Agrega productos primero'); return; }
+  if(modo==='mover' && S.mesas.length<2){ toast('Necesitas al menos 2 mesas'); return; }
+  selModo=modo; selCant={}; selDestino=null;
+  rSel(); document.getElementById('sel-ov').classList.add('open');
+}
+function cerrarSel(){ document.getElementById('sel-ov').classList.remove('open'); }
+function selCh(key,d){
+  const it=S.mesas[curMesa].items.find(x=>x.key===key); if(!it||_esPendiente(it)) return;
+  selCant[key]=Math.max(0,Math.min(it.qty,(selCant[key]||0)+d)); rSel();
+}
+function selToggle(key){
+  const it=S.mesas[curMesa].items.find(x=>x.key===key); if(!it||_esPendiente(it)) return;
+  selCant[key]=(selCant[key]||0)>0?0:it.qty; rSel();
+}
+function selTodo(si){ selCant={}; if(si) S.mesas[curMesa].items.forEach(it=>{ if(!_esPendiente(it)) selCant[it.key]=it.qty; }); rSel(); }
+function selSetDest(i){ selDestino=i; rSel(); }
+function rSel(){
+  const m=S.mesas[curMesa]; const dividir=selModo==='dividir';
+  const nSel=Object.values(selCant).reduce((a,q)=>a+q,0);
+  document.getElementById('sel-title').textContent=dividir?'Dividir la cuenta':'Pasar productos a otra mesa';
+  document.getElementById('sel-sub').innerHTML=_esc(m.nombre)+(m.apodo?' · <span style="color:var(--oro-light);font-weight:700">'+_esc(m.apodo)+'</span>':'')+' — cuenta total '+fmt(mesaTot(m));
+  document.getElementById('sel-ayuda').innerHTML=dividir
+    ? '<b>1.</b> Toca <b>+</b> en lo que paga <b>esta persona</b>.<br><b>2.</b> Cóbrale esa parte. Lo demás queda en la mesa para los siguientes.'
+    : '<b>1.</b> Toca <b>+</b> en lo que quieres pasar.<br><b>2.</b> Elige la <b>mesa destino</b> y confirma. No se cobra nada.';
+  const dest=document.getElementById('sel-dest');
+  if(dividir){ dest.innerHTML=''; } else {
+    dest.innerHTML='<div style="font-size:11px;color:var(--oro);text-transform:uppercase;letter-spacing:1.5px;font-weight:700;margin-bottom:8px">Mesa destino</div><div class="sel-dest-grid">'+
+      S.mesas.map((x,i)=>i===curMesa?'':`<button class="sel-dest${selDestino===i?' on':''}" onclick="selSetDest(${i})"><b>${_esc(x.nombre)}</b>${x.apodo?`<div class="ap">${_esc(x.apodo)}</div>`:''}<small>${x.items&&x.items.length?fmt(mesaTot(x))+' · '+x.items.length+' prod.':'Libre'}</small></button>`).join('')+'</div>';
+  }
+  document.getElementById('sel-items').innerHTML=m.items.map(it=>{
+    if(_esPendiente(it)) return `<div class="sel-row bloq"><div class="sel-nom" style="cursor:default">🕐 ${_esc(it.nombre)}<div class="sel-sub">Primero elige el estilo de la jarra en la comanda</div></div></div>`;
+    const q=selCant[it.key]||0;
+    return `<div class="sel-row${q>0?' on':''}">
+      <div class="sel-nom" onclick="selToggle('${it.key}')">${_esc(it.nombre)}<div class="sel-sub">${fmt(it.precio)} c/u${it.promoAplicada?' · 🏷️ '+_esc(it.promoAplicada):''}</div></div>
+      <div class="sel-cant"><button class="qty-btn" onclick="selCh('${it.key}',-1)">−</button><span class="qty-num">${q}</span><span class="sel-de">de ${it.qty}</span><button class="qty-btn" onclick="selCh('${it.key}',1)">+</button></div>
+    </div>`;
+  }).join('');
+  const ok=document.getElementById('sel-ok'); const res=document.getElementById('sel-resumen'); const igual=document.getElementById('sel-igual');
+  if(dividir){
+    if(nSel===0){
+      res.innerHTML='Aún no has elegido productos.'; ok.disabled=true; ok.textContent='Cobrar esta parte';
+    } else {
+      const pt=_calcPartes();
+      const difiere=Math.abs((pt.totParte+pt.totResto)-mesaTot(m))>1;
+      res.innerHTML=`Esta parte: <b>${fmt(pt.totParte)}</b><br>Queda en la mesa: <b>${fmt(pt.totResto)}</b>`+(difiere?'<div class="sel-aviso">ℹ️ Las promociones se calculan en cada cuenta por separado, por eso la suma puede cambiar un poco.</div>':'');
+      ok.disabled=false; ok.textContent='Cobrar esta parte · '+fmt(pt.totParte);
+    }
+    igual.innerHTML=`<div class="sel-igual"><b style="color:var(--text)">¿Prefieren pagar en partes iguales?</b><br>Total ÷ <input class="form-inp" id="sel-n" type="number" min="2" max="20" value="2" style="width:64px;display:inline-block;padding:4px 8px" oninput="selIgual()"> personas = <b id="sel-igual-val" style="color:var(--oro-light)"></b> c/u<br><span style="font-size:11px;color:var(--text3)">Para que cada uno pague con su medio (efectivo, Nequi, tarjeta), cobra toda la cuenta en <b>Pago mixto</b>.</span><br><button class="btn btn-gray btn-xs" onclick="selPagoMixto()" style="width:auto;margin-top:8px">Cobrar toda la cuenta en pago mixto</button></div>`;
+    selIgual();
+  } else {
+    igual.innerHTML='';
+    const d=selDestino!=null?S.mesas[selDestino]:null;
+    if(nSel===0) res.innerHTML='Aún no has elegido productos.';
+    else res.innerHTML=`Se pasan <b>${nSel}</b> producto(s)`+(d?` a <b>${_esc(d.nombre)}</b>`:'<br><span style="color:var(--text3)">Falta elegir la mesa destino.</span>');
+    ok.disabled=!(nSel>0&&d); ok.textContent=d?('Pasar a '+d.nombre):'Pasar productos';
+  }
+}
+function selIgual(){
+  const n=Math.max(2,parseInt((document.getElementById('sel-n')||{}).value)||2); const el=document.getElementById('sel-igual-val');
+  if(el) el.textContent=fmt(Math.ceil(mesaTot(S.mesas[curMesa])/n));
+}
+function selPagoMixto(){ cerrarSel(); openPago(); try{ if(document.getElementById('pago-ov').classList.contains('open')) setModoPago('mixto'); }catch(e){} }
+function selConfirmar(){
+  const m=S.mesas[curMesa];
+  const sel=Object.entries(selCant).filter(([,q])=>q>0).map(([key,qty])=>({key,qty}));
+  if(sel.length===0) return;
+  if(selModo==='dividir'){
+    const todo=m.items.every(it=>(selCant[it.key]||0)===it.qty);
+    cerrarSel();
+    if(todo){ openPago(); return; }
+    openPago(_calcPartes().parte, sel);
+  } else { moverProductos(sel); }
+}
+function moverProductos(sel){
+  const m=S.mesas[curMesa]; if(selDestino==null){ toast('Elige la mesa destino'); return; }
+  const d=S.mesas[selDestino]; if(!d||d===m) return;
+  const todo=m.items.every(it=>(selCant[it.key]||0)===it.qty);
+  let n=0;
+  sel.forEach(({key,qty})=>{
+    const it=m.items.find(x=>x.key===key); if(!it) return;
+    const c=_clon(it); c.qty=qty; n+=qty;
+    const unible=['barril','lata','snack'].includes(it.tipo);
+    const ex=unible?d.items.find(x=>x.key===key):null;
+    if(ex) ex.qty+=qty; else { if(d.items.some(x=>x.key===key)) c.key=key+'_'+Date.now(); d.items.push(c); }
+    it.qty-=qty; if(it.qty<=0) m.items.splice(m.items.indexOf(it),1);
+  });
+  if(todo && m.apodo && !d.apodo) d.apodo=m.apodo;
+  _aplicarPromociones(m); _aplicarPromociones(d);
+  if(m.items.length===0) m.apodo='';
+  save(); cerrarSel();
+  toast('✅ Pasaste '+n+' producto(s) de '+m.nombre+' a '+d.nombre);
+  if(m.items.length===0){ closeComanda(); } else { rComandaProds(); rComandaItems(); }
+}
+function _finalizarCobro(m){
+  const parcial=pagoParcial, sel=pagoParcialSel;
+  pagoParcial=null; pagoParcialSel=null; _restoTrasPago=null;
+  if(!parcial){ m.items=[]; m.apodo=''; save(); closePago(); closeComanda(); return; }
+  (sel||[]).forEach(({key,qty})=>{ const it=m.items.find(x=>x.key===key); if(!it) return; it.qty-=qty; if(it.qty<=0) m.items.splice(m.items.indexOf(it),1); });
+  _aplicarPromociones(m);
+  if(m.items.length===0){ m.apodo=''; save(); closePago(); closeComanda(); return; }
+  _restoTrasPago=mesaTot(m); save(); closePago(); rComandaProds(); rComandaItems();
+}
+
 function openComanda(idx){
   if(_cajaCruzaDia()){ _mostrarAlertaCajaCruzada(); return; }
   curMesa=idx;
@@ -2128,6 +2319,12 @@ function _promoVigenteAhora(promo){
 
 function rComandaItems(){
   const m=S.mesas[curMesa]; const cont=document.getElementById('comanda-items');
+  const _ex=document.getElementById('comanda-extra');
+  if(_ex){
+    const hay=m.items&&m.items.length>0;
+    _ex.style.display=hay?'flex':'none';
+    _ex.innerHTML=hay?`<button class="btn btn-gray" onclick="abrirSel('dividir')" style="flex:1;margin-top:0;font-size:12px"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M12 3v7"/><path d="M12 10 6 20"/><path d="M12 10l6 10"/></svg>Dividir cuenta</button>`+(S.mesas.length>1?`<button class="btn btn-gray" onclick="abrirSel('mover')" style="flex:1;margin-top:0;font-size:12px">${icon('mezcla',13,'currentColor','vertical-align:-2px;margin-right:4px')}Pasar a otra mesa</button>`:''):'';
+  }
   if(!m.items||m.items.length===0){ cont.innerHTML='<p style="color:var(--text2);font-size:13px;padding:8px 0">Agrega productos arriba</p>'; document.getElementById('comanda-total').textContent='$0'; return; }
   cont.innerHTML=m.items.map((it,i)=>{
     const promoTag = it.promoAplicada ? `<div style="font-size:10px;color:var(--green-light);font-weight:700;margin-top:2px">🏷️ ${it.promoAplicada}</div>` : '';
@@ -2175,20 +2372,25 @@ function setModoPago(modo){
   }
 }
 
-function openPago(){
+function openPago(parcial, sel){
+  pagoParcial=null; pagoParcialSel=null;
   if(_cajaCruzaDia()){ _mostrarAlertaCajaCruzada(); return; }
   if(!S.turno.abierto){
     toast('⚠ Caja cerrada — abre caja en "Turno de Caja" antes de cobrar');
     goPage('turno', document.getElementById('nav-turno'));
     return;
   }
-  const m=S.mesas[curMesa]; if(!m.items||m.items.length===0){ toast('Agrega productos primero'); return; }
-  const catasPend=m.items.filter(it=>it.tipo==='cata'&&it.cataPendiente);
+  const m=S.mesas[curMesa]; const itemsP=parcial||m.items;
+  if(!itemsP||itemsP.length===0){ toast('Agrega productos primero'); return; }
+  const catasPend=itemsP.filter(it=>it.tipo==='cata'&&it.cataPendiente);
   if(catasPend.length>0){
     if(!confirm(`⚠ Hay ${catasPend.length} cata(s) con la jarra sin elegir.\n¿Cobrar de todas formas sin completarlas?`)) return;
   }
-  document.getElementById('pago-mesa').textContent=m.nombre+' — '+m.items.length+' producto(s)';
-  const tot=mesaTot(m);
+  pagoParcial=parcial||null; pagoParcialSel=sel||null;
+  document.getElementById('pago-mesa').textContent=parcial
+    ? m.nombre+(m.apodo?' · '+m.apodo:'')+' — PARTE de la cuenta ('+itemsP.length+' producto(s)). El resto sigue en la mesa.'
+    : m.nombre+' — '+m.items.length+' producto(s)';
+  const tot=_totPago();
   document.getElementById('pago-big').textContent=fmt(tot);
   document.getElementById('pago-recibe').value='';
   document.getElementById('pago-nota').value='';
@@ -2203,12 +2405,12 @@ function openPago(){
   setModoPago('simple');
   document.getElementById('pago-ov').classList.add('open');
 }
-function closePago(){ document.getElementById('pago-ov').classList.remove('open'); }
+function closePago(){ pagoParcial=null; pagoParcialSel=null; document.getElementById('pago-ov').classList.remove('open'); }
 function hideBanners(){ ['b-datafono','b-nequi','b-cambio','b-falta'].forEach(id=>document.getElementById(id).style.display='none'); }
 
 function selMet(el,met){
   document.querySelectorAll('.met-btn').forEach(b=>b.classList.remove('sel')); el.classList.add('sel'); curMetodo=met; hideBanners();
-  const tot=mesaTot(S.mesas[curMesa]); const rec=S.config.recargo||6; const esTarj=TARJETAS.includes(met);
+  const tot=_totPago(); const rec=S.config.recargo||6; const esTarj=TARJETAS.includes(met);
   if(esTarj){ const totR=Math.round(tot*(1+rec/100)); document.getElementById('b-datafono').style.display='block'; document.getElementById('b-datafono').textContent=`DATAFONO: ${fmt(totR)} (incluye ${rec}% recargo)`; document.getElementById('pago-big').textContent=fmt(totR); }
   else if(met==='nequi'){ document.getElementById('b-nequi').style.display='block'; document.getElementById('b-nequi').textContent=`NEQUI: ${fmt(tot)}`; document.getElementById('pago-big').textContent=fmt(tot); }
   else{ document.getElementById('pago-big').textContent=fmt(tot); }
@@ -2216,7 +2418,7 @@ function selMet(el,met){
 }
 
 function calcCambio(){
-  const tot=mesaTot(S.mesas[curMesa]); const rec=S.config.recargo||6; const esTarj=TARJETAS.includes(curMetodo);
+  const tot=_totPago(); const rec=S.config.recargo||6; const esTarj=TARJETAS.includes(curMetodo);
   const totF=esTarj?Math.round(tot*(1+rec/100)):tot; const recibe=parseFloat(document.getElementById('pago-recibe').value)||0;
   document.getElementById('b-cambio').style.display='none'; document.getElementById('b-falta').style.display='none';
   if(recibe>0){ const diff=recibe-totF; if(diff>=0){ document.getElementById('b-cambio').style.display='block'; document.getElementById('b-cambio').textContent=`✅ CAMBIO: ${fmt(diff)}`; } else{ document.getElementById('b-falta').style.display='block'; document.getElementById('b-falta').textContent=`⚠ FALTA: ${fmt(Math.abs(diff))}`; } }
@@ -2238,7 +2440,7 @@ function autoCompletarMixto(medioActual){
   // Si el campo ya tiene un valor escrito por el usuario, no lo tocamos
   if(campoActual.value !== '' && parseFloat(campoActual.value) > 0) return;
 
-  const tot = mesaTot(S.mesas[curMesa]);
+  const tot = _totPago();
   const rec = S.config.recargo || 6;
   const esTarj = TARJETAS.includes(medioActual);
 
@@ -2268,7 +2470,7 @@ function autoCompletarMixto(medioActual){
 }
 
 function calcMixto(){
-  const tot = mesaTot(S.mesas[curMesa]);
+  const tot = _totPago();
   const rec = S.config.recargo || 6;
 
   let totalCubreConsumo = 0; // cuánto consumo cubre lo ingresado (sin contar recargo)
@@ -2336,8 +2538,9 @@ function calcMixto(){
 // ── CONFIRMAR PAGO (simple + mixto) ──
 function confirmarPago(){
   const m = S.mesas[curMesa];
-  if(!m.items||m.items.length===0) return;
-  const tot = mesaTot(m);
+  const itemsP = _itemsPago();
+  if(!itemsP||itemsP.length===0) return;
+  const tot = _totPago();
   const rec = S.config.recargo||6;
   const hora = new Date().toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
   const hora24 = new Date().getHours();
@@ -2346,20 +2549,20 @@ function confirmarPago(){
   if(curModoPago === 'simple'){
     const esTarj = TARJETAS.includes(curMetodo);
     const totF = esTarj ? Math.round(tot*(1+rec/100)) : tot;
-    const promosEnEstaVenta = [...new Set(m.items.filter(it=>it.promoAplicada).map(it=>it.promoAplicada))];
+    const promosEnEstaVenta = [...new Set(itemsP.filter(it=>it.promoAplicada).map(it=>it.promoAplicada))];
     const _bajosAntes=new Set(_barrilesBajos().map(b=>b.nombre));
-    _descontarStock(m.items);
+    _descontarStock(itemsP);
     _avisarBarrilBajo(_bajosAntes);
     S.ventas.push({
-      hora, hora24, fecha:fechaHoy(), mesa:m.nombre, apodo:(m.apodo||undefined),
-      items:[...m.items], metodo:curMetodo,
+      hora, hora24, fecha:fechaHoy(), mesa:m.nombre, apodo:(m.apodo||undefined), dividida:(pagoParcial?true:undefined),
+      items:[...itemsP], metodo:curMetodo,
       totalBase:tot, total:totF,
       recargo: esTarj ? Math.round(tot*rec/100) : 0,
       nota: nota || undefined,
       promociones: promosEnEstaVenta.length>0 ? promosEnEstaVenta : undefined
     });
-    m.items=[]; m.apodo=''; save(); closePago(); closeComanda();
-    toast(`✅ Pago registrado — ${fmt(totF)}`);
+    _finalizarCobro(m);
+    toast(`✅ Pago registrado — ${fmt(totF)}`+(_restoTrasPago!=null?' · Quedan '+fmt(_restoTrasPago)+' en la mesa':''));
 
   } else {
     // MODO MIXTO — los campos de tarjeta ya contienen el monto CON recargo incluido
@@ -2401,14 +2604,14 @@ function confirmarPago(){
 
     // Construir etiqueta de método para historial
     const metodosUsados = Object.keys(pagos).join('+');
-    const promosEnEstaVentaMixta = [...new Set(m.items.filter(it=>it.promoAplicada).map(it=>it.promoAplicada))];
+    const promosEnEstaVentaMixta = [...new Set(itemsP.filter(it=>it.promoAplicada).map(it=>it.promoAplicada))];
 
     const _bajosAntesM=new Set(_barrilesBajos().map(b=>b.nombre));
-    _descontarStock(m.items);
+    _descontarStock(itemsP);
     _avisarBarrilBajo(_bajosAntesM);
     S.ventas.push({
-      hora, hora24, fecha:fechaHoy(), mesa:m.nombre, apodo:(m.apodo||undefined),
-      items:[...m.items],
+      hora, hora24, fecha:fechaHoy(), mesa:m.nombre, apodo:(m.apodo||undefined), dividida:(pagoParcial?true:undefined),
+      items:[...itemsP],
       metodo: metodosUsados,
       pagosMixtos: pagos,
       totalBase: tot,
@@ -2418,8 +2621,8 @@ function confirmarPago(){
       nota: nota || undefined,
       promociones: promosEnEstaVentaMixta.length>0 ? promosEnEstaVentaMixta : undefined
     });
-    m.items=[]; m.apodo=''; save(); closePago(); closeComanda();
-    toast(`✅ Pago mixto registrado — ${fmt(totalFinal)}`);
+    _finalizarCobro(m);
+    toast(`✅ Pago mixto registrado — ${fmt(totalFinal)}`+(_restoTrasPago!=null?' · Quedan '+fmt(_restoTrasPago)+' en la mesa':''));
   }
 }
 
@@ -2516,7 +2719,7 @@ function rVentas(){
     const promoHTML = v.promociones && v.promociones.length>0 ? `<div style="margin-top:4px;font-size:11px;color:var(--green-light);font-weight:700">🏷️ ${v.promociones.join(', ')}</div>` : '';
     return `<tr>
       <td class="val-muted">${v.hora}</td>
-      <td style="font-weight:700">${_mesaTxt(v,true)}</td>
+      <td style="font-weight:700">${_mesaTxt(v,true)}${v.dividida?'<div style="font-size:10px;color:var(--oro);font-weight:800;margin-top:2px">✂ CUENTA DIVIDIDA</div>':''}</td>
       <td style="font-size:12px;color:var(--text2);line-height:1.5">${v.items.map(it=>it.nombre+' x'+it.qty).join(', ')}${promoHTML}${notaHTML}</td>
       <td style="font-size:13px">${fmtMetodo(v)}</td>
       <td class="val-oro" style="white-space:nowrap">${fmt(v.total)}</td>
@@ -2673,7 +2876,64 @@ function toggleDia(idx){
   document.querySelectorAll('[id^="arrow-dia-"]').forEach(e=>e.textContent='▶');
   if(!vis){ el.style.display='table-row'; const arr=document.getElementById('arrow-dia-'+idx); if(arr) arr.textContent='▼'; }
 }
-function buildDetalleProductos(ventas, arqueo){
+// ── Cobros de un cierre ya guardado, con opción de anular (y registro de lo anulado) ──
+function _cobrosCierreHTML(hi){
+  const h=S.historial[hi]; if(!h) return '';
+  const tit=(t,extra)=>`<div style="font-size:11px;color:var(--oro);text-transform:uppercase;letter-spacing:1.5px;font-weight:700;margin-top:18px;margin-bottom:8px">${t}${extra||''}</div>`;
+  const ventas=h.ventas||[];
+  const filas=ventas.map((v,j)=>`<div style="display:flex;gap:10px;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border);font-size:13px;flex-wrap:wrap">
+      <div style="flex:1;min-width:190px"><span style="color:var(--text3)">${_esc(v.hora||'')}</span> · <b>${_mesaTxt(v,true)}</b>${v.dividida?' <span style="color:var(--oro);font-size:10px;font-weight:800">✂ CUENTA DIVIDIDA</span>':''}
+        <div style="font-size:12px;color:var(--text2);line-height:1.5">${(v.items||[]).map(it=>_esc(it.nombre)+' x'+it.qty).join(', ')}</div></div>
+      <div class="val-oro" style="white-space:nowrap">${fmt(v.total)}</div>
+      <button class="btn-del-sm btn-xs" onclick="event.stopPropagation();abrirAnularCerrada(${hi},${j})" title="Anular este cobro">Anular</button>
+    </div>`).join('');
+  let html=tit('Cobros de este cierre',` <span style="color:var(--text3);font-weight:400;text-transform:none;letter-spacing:0">· ¿Un cobro está mal? Anúlalo aquí</span>`)+(filas||'<p style="color:var(--text3);font-size:13px">Sin cobros.</p>');
+  const an=h.anuladas||[];
+  if(an.length){
+    const totAn=an.reduce((a,v)=>a+(v.total||0),0);
+    html+=tit('Anuladas después del cierre')+`<div class="banner b-yellow" style="text-align:left;margin-bottom:8px;font-size:12px;line-height:1.5">Se anularon ${an.length} cobro(s) por ${fmt(totAn)}. El arqueo de arriba muestra lo que se contó esa noche; los totales del día ya descuentan estos cobros.</div>`+
+      an.map(v=>`<div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:12px;line-height:1.6;color:var(--text2)">
+        <span style="text-decoration:line-through">${_esc(v.hora||'')} · ${_mesaTxt(v,true)} · ${fmt(v.total)}</span><br>
+        ${(v.items||[]).map(it=>_esc(it.nombre)+' x'+it.qty).join(', ')}<br>
+        <span style="color:var(--yellow)">Motivo: ${_esc(v.motivo||'—')}</span> <span style="color:var(--text3)">· anulada el ${_esc(v.fechaAnulacion||'')} ${_esc(v.horaAnulacion||'')} · ${v.stockDevuelto?'productos devueltos al stock':'sin devolver al stock'}</span></div>`).join('');
+  }
+  return html;
+}
+let anuState=null;
+function abrirAnularCerrada(hi,vj){
+  const h=S.historial[hi]; const v=h&&h.ventas&&h.ventas[vj]; if(!v) return;
+  anuState={hi,vj};
+  document.getElementById('anu-resumen').innerHTML=`<b>${_mesaTxt(v,true)}</b> — ${_esc(v.hora||'')} — <b>${fmt(v.total)}</b><br><span style="color:var(--text2)">${(v.items||[]).map(it=>_esc(it.nombre)+' x'+it.qty).join(', ')}</span><br><span style="color:var(--text3)">Cierre del ${_esc(h.fecha)}</span>`;
+  document.getElementById('anu-motivo').value=''; document.getElementById('anu-clave').value='';
+  document.getElementById('anu-stock').checked=true;
+  const er=document.getElementById('anu-error'); er.style.display='none'; er.textContent='';
+  document.getElementById('anu-ov').classList.add('open');
+}
+function cerrarAnu(){ document.getElementById('anu-ov').classList.remove('open'); anuState=null; }
+function confirmarAnularCerrada(){
+  if(!anuState) return;
+  const er=document.getElementById('anu-error'); const falla=t=>{ er.textContent=t; er.style.display='block'; };
+  const motivo=document.getElementById('anu-motivo').value.trim();
+  if(!motivo){ falla('Escribe el motivo de la anulación.'); return; }
+  if(document.getElementById('anu-clave').value!==CLAVE_CAJA){ falla('Clave incorrecta.'); return; }
+  const {hi,vj}=anuState; const h=S.historial[hi]; const v=h&&h.ventas&&h.ventas[vj];
+  if(!v){ cerrarAnu(); return; }
+  const devolver=document.getElementById('anu-stock').checked;
+  if(devolver) _devolverStock(v.items||[]);
+  let gan=0; try{ gan=gananciaVenta(v); }catch(e){}
+  h.ventas.splice(vj,1);
+  h.numVentas=Math.max(0,(h.numVentas||0)-1);
+  h.total=Math.max(0,(h.total||0)-(v.total||0));
+  h.ganancia=(h.ganancia||0)-gan;
+  const reg={...v, motivo, stockDevuelto:devolver, horaAnulacion:new Date().toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}), fechaAnulacion:fechaHoy(), fechaCierre:h.fecha};
+  if(!h.anuladas) h.anuladas=[]; h.anuladas.push(reg);
+  if(!S.anuladas) S.anuladas=[]; S.anuladas.push({...reg, despuesDelCierre:true});
+  save(); cerrarAnu();
+  toast('✅ Cobro anulado — el día '+h.fecha+' ya se actualizó');
+  try{ rHistorial(); rDash(); rStock(); }catch(e){}
+}
+
+function buildDetalleProductos(ventas, arqueo, hi){
   if(!ventas||ventas.length===0) return '<p style="color:var(--text3);font-size:13px;padding:10px">Sin detalle disponible.</p>';
   const pm={};
   ventas.forEach(v=>(v.items||[]).forEach(it=>{ const k=it.nombre; if(!pm[k]) pm[k]={qty:0,total:0}; pm[k].qty+=it.qty; pm[k].total+=it.precio*it.qty; }));
@@ -2760,6 +3020,7 @@ function buildDetalleProductos(ventas, arqueo){
     ${arqueoHTML}
     ${promosHTML}
     ${notasHTML}
+    ${(hi!=null&&hi!==undefined)?_cobrosCierreHTML(hi):''}
   </div>`;
 }
 function rHistorial(){
@@ -2795,7 +3056,7 @@ function rHistorial(){
     const dDesde = parseFechaDDMMYYYY(inputDateAFecha(desde));
     const dHasta = parseFechaDDMMYYYY(inputDateAFecha(hasta));
     // Cada cierre de caja es una fila (si hubo dos cierres el mismo día, salen los dos)
-    const enRango = todos.map((d,i)=>({d, abierta:(S.ventas.length>0 && i===todos.length-1)})).filter(({d})=>{
+    const enRango = todos.map((d,i)=>({d, hi:i, abierta:(S.ventas.length>0 && i===todos.length-1)})).filter(({d})=>{
       const f = parseFechaDDMMYYYY(d.fecha); return f && f>=dDesde && f<=dHasta;
     }).sort((x,y)=>parseFechaDDMMYYYY(x.d.fecha)-parseFechaDDMMYYYY(y.d.fecha));
 
@@ -2805,8 +3066,8 @@ function rHistorial(){
       return;
     }
 
-    const filas = enRango.map(({d,abierta},k)=>{
-      const detalle = buildDetalleProductos(d.ventas, d.arqueo);
+    const filas = enRango.map(({d,abierta,hi},k)=>{
+      const detalle = buildDetalleProductos(d.ventas, d.arqueo, abierta?null:hi);
       const etiqueta = abierta ? ' <span style="font-size:10px;color:var(--yellow);font-weight:700">· caja abierta</span>' : '';
       const abierto = enRango.length===1; // si hay un solo cierre, se muestra desplegado
       return `<tr style="cursor:pointer" onclick="toggleDia(${k})"><td><span style="color:var(--oro);margin-right:6px;font-size:11px" id="arrow-dia-${k}">${abierto?'▼':'▶'}</span><span class="val-muted">${d.fecha}</span>${etiqueta}</td><td>${d.numVentas}</td><td class="val-oro">${fmt(d.total)}</td><td class="val-green">${fmt(d.ganancia||0)}</td><td class="val-red">${fmt(d.gastos||0)}</td></tr>
