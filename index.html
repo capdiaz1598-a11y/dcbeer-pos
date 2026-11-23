@@ -96,6 +96,9 @@ html,body{height:100%;overflow:hidden;font-family:'Segoe UI',system-ui,sans-seri
 .prod-btn:hover{background:var(--surf4);border-color:var(--cobre)}
 .prod-btn .precio{color:var(--oro-light);font-weight:700;font-size:13px}
 .prod-btn.agotado{opacity:.3;cursor:not-allowed}
+.mesa-apodo{font-size:13px;font-weight:800;color:var(--oro-light);margin-top:2px;line-height:1.2;word-break:break-word}
+.comanda-apodo{margin-top:6px;width:100%;max-width:260px;background:rgba(0,0,0,.25);border:1px solid var(--border2);border-radius:6px;color:var(--oro-light);font-size:13px;font-weight:700;padding:6px 10px}
+.comanda-apodo::placeholder{color:var(--text3);font-weight:400}
 .agotados-line{font-size:11px;color:var(--text3);padding:6px 4px 2px;line-height:1.5;border-top:1px dashed var(--border);margin-top:6px}
 .agotados-line b{color:var(--text2);font-weight:700;letter-spacing:.5px;text-transform:uppercase;font-size:10px;margin-right:4px}
 .pres-grid{padding:4px 0 4px 12px;border-left:2px solid var(--oro);margin-left:4px;margin-bottom:4px}
@@ -568,7 +571,10 @@ if('serviceWorker' in navigator){
 <div class="overlay" id="comanda-ov" onclick="if(event.target===this)closeComanda()">
   <div class="comanda-panel">
     <div class="comanda-hdr">
-      <h2 id="comanda-title">Mesa</h2>
+      <div style="min-width:0;flex:1;margin-right:12px">
+        <h2 id="comanda-title">Mesa</h2>
+        <input class="comanda-apodo" id="comanda-apodo" type="text" maxlength="30" placeholder="Sobrenombre (opcional): Juan, el de la gorra…" autocomplete="off" oninput="setApodoMesa(this.value)">
+      </div>
       <button class="close-btn" onclick="closeComanda()">✕ Cerrar</button>
     </div>
     <div class="comanda-body">
@@ -975,7 +981,7 @@ let curMesa=null, curMetodo='efectivo', curHistTab='dia', curModoPago='simple';
 // Instancias de gráficas (hay que destruirlas antes de redibujar en el mismo canvas)
 let chartRentHoy=null;
 // Filtros del historial: vacíos = mostrar el día/semana/mes actual por defecto.
-let histFechaFiltro = '';   // formato YYYY-MM-DD (igual al <input type="date">)
+let histDesde = '', histHasta = '';   // rango del Diario, formato YYYY-MM-DD (vacío = hoy)
 let histSemanaFiltro = '';  // formato YYYY-MM-DD (cualquier día de la semana deseada)
 let histMesFiltro = '';     // formato YYYY-MM
 function save(){ localStorage.setItem('dcbeer_v4',JSON.stringify(S)); try{ _syncSoon(); }catch(e){} try{ _bkSoon(); }catch(e){} }
@@ -1819,6 +1825,7 @@ function rMesas(){
     return `<div class="${clases}" onclick="openComanda(${i})">
       <div class="mesa-icon" style="color:${ocu?'var(--oro-light)':'var(--text3)'}">${ocu?ICONS.jarra:ICONS.mesa}</div>
       <div class="mesa-name">${m.nombre}</div>
+      ${m.apodo?`<div class="mesa-apodo">${_esc(m.apodo)}</div>`:''}
       ${ocu?`<div class="mesa-total">${fmt(tot)}</div><div class="mesa-items">${m.items.length} producto(s)</div><span class="mesa-badge">Activa</span>${tieneCataPend?`<div style="font-size:10px;color:#e67e22;font-weight:700;margin-top:4px">🕐 Cata pendiente</div>`:''}`:` <div class="mesa-libre">Disponible</div>`}
     </div>`;
   }).join('');
@@ -1835,16 +1842,21 @@ function irACerrarCaja(){
   m.style.display='none'; m.classList.remove('open');
   goPage('turno', document.getElementById('nav-turno'));
 }
+function _esc(t){ return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+// Texto de mesa + sobrenombre. html=true escapa para insertarlo en la pantalla.
+function _mesaTxt(v,html){ const ap=(v&&v.apodo)?String(v.apodo):''; const base=v.mesa||''; if(!html) return ap?base+' ('+ap+')':base; return ap?_esc(base)+' <span style="color:var(--oro-light);font-weight:700">· '+_esc(ap)+'</span>':_esc(base); }
+function setApodoMesa(v){ if(curMesa==null) return; S.mesas[curMesa].apodo=String(v||'').trim().slice(0,30); save(); }
 function openComanda(idx){
   if(_cajaCruzaDia()){ _mostrarAlertaCajaCruzada(); return; }
   curMesa=idx;
   document.getElementById('comanda-title').textContent=S.mesas[idx].nombre;
+  document.getElementById('comanda-apodo').value=S.mesas[idx].apodo||'';
   // Re-evaluar promociones al abrir la mesa (por si cambió el día/horario desde la última vez)
   if(!S.mesas[idx].items.some(it=>it.tipo==='cata')) { _aplicarPromociones(S.mesas[idx]); save(); }
   rComandaProds(); rComandaItems();
   document.getElementById('comanda-ov').classList.add('open');
 }
-function closeComanda(){ document.getElementById('comanda-ov').classList.remove('open'); rMesas(); rDash(); }
+function closeComanda(){ if(curMesa!=null&&S.mesas[curMesa]&&(!S.mesas[curMesa].items||S.mesas[curMesa].items.length===0)&&S.mesas[curMesa].apodo){ S.mesas[curMesa].apodo=''; save(); } document.getElementById('comanda-ov').classList.remove('open'); rMesas(); rDash(); }
 function toggleBarril(bi){
   const el=document.getElementById('pres-'+bi); if(!el) return;
   const visible=el.style.display!=='none';
@@ -2077,7 +2089,7 @@ function rComandaItems(){
 }
 function chQty(i,d){ const m=S.mesas[curMesa]; m.items[i].qty+=d; if(m.items[i].qty<=0) m.items.splice(i,1); save(); _aplicarPromociones(m); rComandaItems(); }
 function delItem(i){ const m=S.mesas[curMesa]; m.items.splice(i,1); save(); _aplicarPromociones(m); rComandaItems(); }
-function limpiarMesa(){ if(!confirm('¿Limpiar comanda de '+S.mesas[curMesa].nombre+'?')) return; S.mesas[curMesa].items=[]; save(); rComandaItems(); closeComanda(); }
+function limpiarMesa(){ if(!confirm('¿Limpiar comanda de '+S.mesas[curMesa].nombre+'?')) return; S.mesas[curMesa].items=[]; S.mesas[curMesa].apodo=''; save(); rComandaItems(); closeComanda(); }
 
 // ════════════════════════════════════════
 // PAGO — MODO SIMPLE / MIXTO
@@ -2279,14 +2291,14 @@ function confirmarPago(){
     const promosEnEstaVenta = [...new Set(m.items.filter(it=>it.promoAplicada).map(it=>it.promoAplicada))];
     _descontarStock(m.items);
     S.ventas.push({
-      hora, hora24, fecha:fechaHoy(), mesa:m.nombre,
+      hora, hora24, fecha:fechaHoy(), mesa:m.nombre, apodo:(m.apodo||undefined),
       items:[...m.items], metodo:curMetodo,
       totalBase:tot, total:totF,
       recargo: esTarj ? Math.round(tot*rec/100) : 0,
       nota: nota || undefined,
       promociones: promosEnEstaVenta.length>0 ? promosEnEstaVenta : undefined
     });
-    m.items=[]; save(); closePago(); closeComanda();
+    m.items=[]; m.apodo=''; save(); closePago(); closeComanda();
     toast(`✅ Pago registrado — ${fmt(totF)}`);
 
   } else {
@@ -2333,7 +2345,7 @@ function confirmarPago(){
 
     _descontarStock(m.items);
     S.ventas.push({
-      hora, hora24, fecha:fechaHoy(), mesa:m.nombre,
+      hora, hora24, fecha:fechaHoy(), mesa:m.nombre, apodo:(m.apodo||undefined),
       items:[...m.items],
       metodo: metodosUsados,
       pagosMixtos: pagos,
@@ -2344,7 +2356,7 @@ function confirmarPago(){
       nota: nota || undefined,
       promociones: promosEnEstaVentaMixta.length>0 ? promosEnEstaVentaMixta : undefined
     });
-    m.items=[]; save(); closePago(); closeComanda();
+    m.items=[]; m.apodo=''; save(); closePago(); closeComanda();
     toast(`✅ Pago mixto registrado — ${fmt(totalFinal)}`);
   }
 }
@@ -2382,7 +2394,7 @@ function anularVenta(idx){
   if(!v) return;
   const ok = confirm(
     `¿Anular esta venta?\n\n` +
-    `${v.mesa} — ${v.hora} — ${fmt(v.total)}\n` +
+    `${_mesaTxt(v,false)} — ${v.hora} — ${fmt(v.total)}\n` +
     `${v.items.map(it=>it.nombre+' x'+it.qty).join(', ')}\n\n` +
     `El stock de estos productos se devolverá y el monto se descontará de la caja del día.`
   );
@@ -2436,7 +2448,7 @@ function rVentas(){
     const promoHTML = v.promociones && v.promociones.length>0 ? `<div style="margin-top:4px;font-size:11px;color:var(--green-light);font-weight:700">🏷️ ${v.promociones.join(', ')}</div>` : '';
     return `<tr>
       <td class="val-muted">${v.hora}</td>
-      <td style="font-weight:700">${v.mesa}</td>
+      <td style="font-weight:700">${_mesaTxt(v,true)}</td>
       <td style="font-size:12px;color:var(--text2);line-height:1.5">${v.items.map(it=>it.nombre+' x'+it.qty).join(', ')}${promoHTML}${notaHTML}</td>
       <td style="font-size:13px">${fmtMetodo(v)}</td>
       <td class="val-oro" style="white-space:nowrap">${fmt(v.total)}</td>
@@ -2591,7 +2603,7 @@ function toggleDia(idx){
   const vis=el.style.display!=='none';
   document.querySelectorAll('[id^="detalle-dia-"]').forEach(e=>e.style.display='none');
   document.querySelectorAll('[id^="arrow-dia-"]').forEach(e=>e.textContent='▶');
-  if(!vis){ el.style.display='block'; const arr=document.getElementById('arrow-dia-'+idx); if(arr) arr.textContent='▼'; }
+  if(!vis){ el.style.display='table-row'; const arr=document.getElementById('arrow-dia-'+idx); if(arr) arr.textContent='▼'; }
 }
 function buildDetalleProductos(ventas, arqueo){
   if(!ventas||ventas.length===0) return '<p style="color:var(--text3);font-size:13px;padding:10px">Sin detalle disponible.</p>';
@@ -2611,7 +2623,7 @@ function buildDetalleProductos(ventas, arqueo){
   const conNota = ventas.filter(v=>v.nota);
   const notasHTML = conNota.length===0 ? '' : `
     <div style="font-size:11px;color:var(--oro);text-transform:uppercase;letter-spacing:1.5px;font-weight:700;margin-top:16px;margin-bottom:8px">Notas</div>
-    ${conNota.map(v=>`<div style="padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;line-height:1.5"><span style="color:var(--text3)">${v.hora} · ${v.mesa}:</span> <span style="color:var(--yellow);font-style:italic">${icon('nota',13)} ${v.nota}</span></div>`).join('')}
+    ${conNota.map(v=>`<div style="padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;line-height:1.5"><span style="color:var(--text3)">${v.hora} · ${_mesaTxt(v,true)}:</span> <span style="color:var(--yellow);font-style:italic">${icon('nota',13)} ${v.nota}</span></div>`).join('')}
   `;
 
   // ── Promociones aplicadas este día (para contabilidad) ──
@@ -2626,7 +2638,7 @@ function buildDetalleProductos(ventas, arqueo){
   });
   const promosHTML = ventasConPromo.length===0 ? '' : `
     <div style="font-size:11px;color:var(--oro);text-transform:uppercase;letter-spacing:1.5px;font-weight:700;margin-top:16px;margin-bottom:8px">Promociones aplicadas</div>
-    ${ventasConPromo.map(v=>`<div style="padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;line-height:1.5"><span style="color:var(--text3)">${v.hora} · ${v.mesa}:</span> <span style="color:var(--green-light);font-weight:700">🏷️ ${v.promociones.join(', ')}</span></div>`).join('')}
+    ${ventasConPromo.map(v=>`<div style="padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;line-height:1.5"><span style="color:var(--text3)">${v.hora} · ${_mesaTxt(v,true)}:</span> <span style="color:var(--green-light);font-weight:700">🏷️ ${v.promociones.join(', ')}</span></div>`).join('')}
     <div style="display:flex;justify-content:space-between;margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:13px">
       <span style="color:var(--text2)">Total dejado de cobrar por promociones</span>
       <span style="color:var(--red-light);font-weight:700">−${fmt(totalAhorradoPromos)}</span>
@@ -2694,32 +2706,73 @@ function rHistorial(){
     return;
   }
 
-  // ════ DIARIO ════
+  // ════ DIARIO (con rango de fechas) ════
   if(curHistTab==='dia'){
-    // Selector de fecha. Si está vacío, se usa la fecha de hoy por defecto.
-    const fechaMostrada = histFechaFiltro || fechaAInputDate(fechaHoy());
+    // Rango Desde / Hasta. Si están vacíos, se usa el día de hoy.
+    const hoyISO = fechaAInputDate(fechaHoy());
+    let desde = histDesde || hoyISO;
+    let hasta = histHasta || histDesde || hoyISO;
+    if(hasta < desde){ const t=desde; desde=hasta; hasta=t; } // si los ponen al revés, se acomodan
+    const hayFiltro = !!(histDesde || histHasta);
     selCont.innerHTML = `<div class="card" style="margin-bottom:0;padding:14px 16px">
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        <label class="form-lbl" style="margin-bottom:0">${icon('calendario',13,'var(--oro)')} Ver fecha</label>
-        <input class="form-inp" type="date" id="hist-fecha-input" value="${fechaMostrada}" style="max-width:200px" onchange="histFiltrarFecha(this.value)">
-        ${histFechaFiltro ? '<button class="btn btn-gray btn-xs" onclick="histLimpiarFecha()">Ver hoy</button>' : ''}
+        <label class="form-lbl" style="margin-bottom:0">${icon('calendario',13,'var(--oro)')} Desde</label>
+        <input class="form-inp" type="date" id="hist-desde-input" value="${desde}" style="max-width:170px" onchange="histSetDesde(this.value)">
+        <label class="form-lbl" style="margin-bottom:0">Hasta</label>
+        <input class="form-inp" type="date" id="hist-hasta-input" value="${hasta}" style="max-width:170px" onchange="histSetHasta(this.value)">
+        ${hayFiltro ? '<button class="btn btn-gray btn-xs" onclick="histLimpiarRango()">Ver hoy</button>' : ''}
       </div>
     </div>`;
 
-    const fechaBuscada = inputDateAFecha(fechaMostrada);
-    const dia = todos.find(d=>d.fecha===fechaBuscada);
+    const dDesde = parseFechaDDMMYYYY(inputDateAFecha(desde));
+    const dHasta = parseFechaDDMMYYYY(inputDateAFecha(hasta));
+    // Cada cierre de caja es una fila (si hubo dos cierres el mismo día, salen los dos)
+    const enRango = todos.map((d,i)=>({d, abierta:(S.ventas.length>0 && i===todos.length-1)})).filter(({d})=>{
+      const f = parseFechaDDMMYYYY(d.fecha); return f && f>=dDesde && f<=dHasta;
+    }).sort((x,y)=>parseFechaDDMMYYYY(x.d.fecha)-parseFechaDDMMYYYY(y.d.fecha));
 
-    if(!dia){
-      cont.innerHTML = `<div class="card"><p style="color:var(--text2);font-size:13px">Sin ventas registradas el ${fechaBuscada}.</p></div>`;
+    const tituloRango = desde===hasta ? inputDateAFecha(desde) : inputDateAFecha(desde)+' al '+inputDateAFecha(hasta);
+    if(enRango.length===0){
+      cont.innerHTML = `<div class="card"><p style="color:var(--text2);font-size:13px">Sin ventas registradas ${desde===hasta?'el ':'del '}${tituloRango}.</p></div>`;
       return;
     }
 
-    const detalle = buildDetalleProductos(dia.ventas, dia.arqueo);
+    const filas = enRango.map(({d,abierta},k)=>{
+      const detalle = buildDetalleProductos(d.ventas, d.arqueo);
+      const etiqueta = abierta ? ' <span style="font-size:10px;color:var(--yellow);font-weight:700">· caja abierta</span>' : '';
+      const abierto = enRango.length===1; // si hay un solo cierre, se muestra desplegado
+      return `<tr style="cursor:pointer" onclick="toggleDia(${k})"><td><span style="color:var(--oro);margin-right:6px;font-size:11px" id="arrow-dia-${k}">${abierto?'▼':'▶'}</span><span class="val-muted">${d.fecha}</span>${etiqueta}</td><td>${d.numVentas}</td><td class="val-oro">${fmt(d.total)}</td><td class="val-green">${fmt(d.ganancia||0)}</td><td class="val-red">${fmt(d.gastos||0)}</td></tr>
+      <tr id="detalle-dia-${k}" style="${abierto?'':'display:none'}"><td colspan="5" style="padding:0">${detalle}</td></tr>`;
+    }).join('');
+
+    let resumen = '';
+    if(enRango.length>1){
+      const tot = enRango.reduce((a,{d})=>a+(d.total||0),0);
+      const gan = enRango.reduce((a,{d})=>a+(d.ganancia||0),0);
+      const gas = enRango.reduce((a,{d})=>a+(d.gastos||0),0);
+      const nv  = enRango.reduce((a,{d})=>a+(d.numVentas||0),0);
+      const diasUnicos = new Set(enRango.map(({d})=>d.fecha)).size;
+      const todasVentas = enRango.reduce((a,{d})=>a.concat(d.ventas||[]),[]);
+      resumen = `<div class="card">
+        <div class="card-title">Resumen del período</div>
+        <div class="caja-row"><span class="caja-lbl">Total vendido</span><span class="val-oro">${fmt(tot)}</span></div>
+        <div class="caja-row"><span class="caja-lbl">Ganancia</span><span class="val-green">${fmt(gan)}</span></div>
+        <div class="caja-row"><span class="caja-lbl">Gastos</span><span class="val-red">${fmt(gas)}</span></div>
+        <div class="caja-row"><span class="caja-lbl" style="font-weight:800">Ganancia neta</span><span class="val-green" style="font-size:16px">${fmt(gan-gas)}</span></div>
+        <div class="caja-row"><span class="caja-lbl">Cobros</span><span class="caja-val">${nv}</span></div>
+        <div class="caja-row"><span class="caja-lbl">Días con venta</span><span class="caja-val">${diasUnicos}</span></div>
+      </div>
+      <div class="card" style="padding:0;overflow:hidden">
+        <div class="card-title" style="padding:14px 16px 0">Productos vendidos en el período</div>
+        ${buildDetalleProductos(todasVentas, null)}
+      </div>`;
+    }
+
     cont.innerHTML = `<div class="card" style="overflow-x:auto">
+      <div class="card-title">${tituloRango}</div>
       <table class="data-table"><thead><tr><th>Fecha</th><th>Cobros</th><th>Total</th><th>Ganancia</th><th>Gastos</th></tr></thead>
-      <tbody><tr style="cursor:pointer" onclick="toggleDia(0)"><td><span style="color:var(--oro);margin-right:6px;font-size:11px" id="arrow-dia-0">▼</span><span class="val-muted">${dia.fecha}</span></td><td>${dia.numVentas}</td><td class="val-oro">${fmt(dia.total)}</td><td class="val-green">${fmt(dia.ganancia||0)}</td><td class="val-red">${fmt(dia.gastos||0)}</td></tr>
-      <tr id="detalle-dia-0"><td colspan="5" style="padding:0">${detalle}</td></tr></tbody></table>
-    </div>`;
+      <tbody>${filas}</tbody></table>
+    </div>${resumen}`;
   }
   // ════ SEMANAL ════
   if(curHistTab==='semana'){
@@ -2814,8 +2867,9 @@ function rHistorial(){
 }
 
 // ── Funciones de filtrado del historial (calendario) ──
-function histFiltrarFecha(v){ histFechaFiltro = v; rHistorial(); }
-function histLimpiarFecha(){ histFechaFiltro = ''; rHistorial(); }
+function histSetDesde(v){ histDesde = v; if(!histHasta || histHasta < v) histHasta = v; rHistorial(); }
+function histSetHasta(v){ histHasta = v; if(!histDesde || histDesde > v) histDesde = v; rHistorial(); }
+function histLimpiarRango(){ histDesde = ''; histHasta = ''; rHistorial(); }
 function histFiltrarSemana(v){ histSemanaFiltro = v; rHistorial(); }
 function histLimpiarSemana(){ histSemanaFiltro = ''; rHistorial(); }
 function histFiltrarMes(v){ histMesFiltro = v; rHistorial(); }
@@ -3363,7 +3417,7 @@ function confirmarCierreCaja(){
     }
   });
 
-  S.ventas=[]; S.gastos=[]; S.mesas.forEach(m=>m.items=[]);
+  S.ventas=[]; S.gastos=[]; S.mesas.forEach(m=>{ m.items=[]; m.apodo=''; });
   S.turno = { abierto:false, baseApertura:0, horaApertura:'', fechaApertura:'' };
   save();
   try{ _respaldarNube(true).catch(()=>{}); }catch(e){}
@@ -3377,9 +3431,9 @@ function confirmarCierreCaja(){
 // ════════════════════════════════════════
 // CERRAR DÍA / RESETS
 // ════════════════════════════════════════
-function cerrarDia(){ const pwd=prompt('Clave para cerrar el día:'); if(pwd!=='DCBEER1815'){ toast('Clave incorrecta'); return; } const tot=S.ventas.reduce((a,v)=>a+v.total,0); const gan=S.ventas.reduce((a,v)=>a+gananciaVenta(v),0); const totG=S.gastos.reduce((a,g)=>a+g.valor,0); S.historial.push({fecha:fechaHoy(),numVentas:S.ventas.length,total:tot,ganancia:gan,gastos:totG,ventas:[...S.ventas],gastosDetalle:[...S.gastos]}); S.ventas=[]; S.gastos=[]; S.mesas.forEach(m=>m.items=[]); save(); try{ _respaldarNube(true).catch(()=>{}); }catch(e){} toast('Día cerrado y guardado ✓'); rConfig(); }
+function cerrarDia(){ const pwd=prompt('Clave para cerrar el día:'); if(pwd!=='DCBEER1815'){ toast('Clave incorrecta'); return; } const tot=S.ventas.reduce((a,v)=>a+v.total,0); const gan=S.ventas.reduce((a,v)=>a+gananciaVenta(v),0); const totG=S.gastos.reduce((a,g)=>a+g.valor,0); S.historial.push({fecha:fechaHoy(),numVentas:S.ventas.length,total:tot,ganancia:gan,gastos:totG,ventas:[...S.ventas],gastosDetalle:[...S.gastos]}); S.ventas=[]; S.gastos=[]; S.mesas.forEach(m=>{ m.items=[]; m.apodo=''; }); save(); try{ _respaldarNube(true).catch(()=>{}); }catch(e){} toast('Día cerrado y guardado ✓'); rConfig(); }
 function resetStock(){ const pwd=prompt('Clave:'); if(pwd!=='DCBEER1815'){ toast('Clave incorrecta'); return; } S.barriles.forEach(b=>b.litros=b.litrosMax); S.latas.forEach(l=>l.stock=l.stockMax); S.snacks.forEach(sn=>sn.stock=sn.stockMax); save(); toast('Stock reseteado ✓'); rConfig(); }
-function reiniciarTodo(){ const pwd=prompt('Clave para reiniciar todo el sistema:'); if(pwd!=='DCBEER1815'){ toast('Clave incorrecta'); return; } if(!confirm('¿Seguro? Esto borra TODAS las ventas, historial, gastos y el turno de caja.')) return; S.ventas=[]; S.gastos=[]; S.historial=[]; S.anuladas=[]; S.mesas.forEach(m=>m.items=[]); S.barriles.forEach(b=>b.litros=b.litrosMax); S.latas.forEach(l=>l.stock=l.stockMax); S.snacks.forEach(sn=>sn.stock=sn.stockMax); S.turno={ abierto:false, baseApertura:0, horaApertura:'', fechaApertura:'' }; save(); toast('Sistema reiniciado ✓'); rConfig(); rTurno(); }
+function reiniciarTodo(){ const pwd=prompt('Clave para reiniciar todo el sistema:'); if(pwd!=='DCBEER1815'){ toast('Clave incorrecta'); return; } if(!confirm('¿Seguro? Esto borra TODAS las ventas, historial, gastos y el turno de caja.')) return; S.ventas=[]; S.gastos=[]; S.historial=[]; S.anuladas=[]; S.mesas.forEach(m=>{ m.items=[]; m.apodo=''; }); S.barriles.forEach(b=>b.litros=b.litrosMax); S.latas.forEach(l=>l.stock=l.stockMax); S.snacks.forEach(sn=>sn.stock=sn.stockMax); S.turno={ abierto:false, baseApertura:0, horaApertura:'', fechaApertura:'' }; save(); toast('Sistema reiniciado ✓'); rConfig(); rTurno(); }
 
 // ════════════════════════════════════════
 // EXPORTAR EXCEL
@@ -3388,7 +3442,7 @@ function exportHoy(){
   if(typeof XLSX==='undefined'){ toast('Excel no disponible por ahora'); return; }
   const wb=XLSX.utils.book_new();
   const vd=[['Hora','Fecha','Mesa','Productos','Método','Total Base','Recargo','Total Final','Ganancia','Nota']];
-  S.ventas.forEach(v=>vd.push([v.hora,v.fecha,v.mesa,v.items.map(it=>it.nombre+' x'+it.qty).join(' | '),v.metodo,v.totalBase,v.recargo||0,v.total,Math.round(gananciaVenta(v)),v.nota||'']));
+  S.ventas.forEach(v=>vd.push([v.hora,v.fecha,_mesaTxt(v,false),v.items.map(it=>it.nombre+' x'+it.qty).join(' | '),v.metodo,v.totalBase,v.recargo||0,v.total,Math.round(gananciaVenta(v)),v.nota||'']));
   vd.push([]); vd.push(['TOTAL','','','','',S.ventas.reduce((a,v)=>a+v.totalBase,0),'',S.ventas.reduce((a,v)=>a+v.total,0),Math.round(S.ventas.reduce((a,v)=>a+gananciaVenta(v),0)),'']);
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(vd),'Ventas del día');
   const base=S.config.baseCaja||100000;
@@ -3422,7 +3476,7 @@ function exportTodo(){
   Object.values(meses).forEach(m=>md.push([m.label,m.dias,m.total,Math.round(m.ganancia),m.gastos,Math.round(m.ganancia-m.gastos)]));
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(md),'Resumen mensual');
   const avd=[['Fecha','Hora','Mesa','Producto','Cantidad','Precio unitario','Total','Método']];
-  todos.forEach(d=>{ if(d.ventas) d.ventas.forEach(v=>v.items.forEach(it=>avd.push([d.fecha,v.hora,v.mesa,it.nombre,it.qty,it.precio,it.precio*it.qty,v.metodo]))); });
+  todos.forEach(d=>{ if(d.ventas) d.ventas.forEach(v=>v.items.forEach(it=>avd.push([d.fecha,v.hora,_mesaTxt(v,false),it.nombre,it.qty,it.precio,it.precio*it.qty,v.metodo]))); });
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(avd),'Todas las ventas');
   XLSX.writeFile(wb,'DCBEER_Historial_Completo.xlsx'); toast('Excel completo descargado ✓');
 }
