@@ -465,10 +465,12 @@ if('serviceWorker' in navigator){
 
     <!-- STOCK -->
     <div class="page" id="page-stock">
+      <div id="stock-pedido"></div>
       <div id="stock-atencion"></div>
       <div class="card"><div class="card-title"><span style="display:inline-flex;align-items:center;gap:6px;color:var(--oro)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10l1.5 8L17 20H7l-1.5-8z"/><line x1="5.7" y1="8.5" x2="18.3" y2="8.5"/><line x1="5.7" y1="15.5" x2="18.3" y2="15.5"/></svg>Barriles</span></div><div class="stock-mosaico" id="stock-barriles"></div></div>
       <div class="card"><div class="card-title"><span style="display:inline-flex;align-items:center;gap:6px;color:var(--oro)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3h8l1 4-1 13H8L7 7z"/><line x1="7.3" y1="7" x2="16.7" y2="7"/></svg>Latas</span></div><div class="stock-mosaico" id="stock-latas"></div></div>
       <div class="card"><div class="card-title"><span style="display:inline-flex;align-items:center;gap:6px;color:var(--oro)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9 12 4l7 5-2 11H7z"/><line x1="9" y1="11" x2="9" y2="17"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="15" y1="11" x2="15" y2="17"/></svg>Snacks</span></div><div class="stock-mosaico" id="stock-snacks"></div></div>
+      <div id="stock-ingresos"></div>
     </div>
 
     <!-- CAJA -->
@@ -523,6 +525,8 @@ if('serviceWorker' in navigator){
               <div class="form-row"><label class="form-lbl">Precio Cata 2L ($)</label><input class="form-inp" id="cfg-cata2L" type="number" placeholder="Ej: 75000"></div>
             </div>
             <div class="form-row"><label class="form-lbl">Avisar de barril casi vacío cuando queden (L)</label><input class="form-inp" id="cfg-alerta-barril" type="number" step="0.5" min="0.5" placeholder="3"></div>
+            <div class="form-row"><label class="form-lbl">Días que tarda en llegar un pedido</label><input class="form-inp" id="cfg-dias-entrega" type="number" min="0" placeholder="3"></div>
+            <div class="form-row"><label class="form-lbl">Al pedir, cubrir cuántos días de venta</label><input class="form-inp" id="cfg-dias-cobertura" type="number" min="1" placeholder="14"></div>
             <button class="btn btn-oro btn-sm" onclick="saveConfig()">Guardar parámetros</button>
           </div>
           <div class="card">
@@ -804,6 +808,7 @@ if('serviceWorker' in navigator){
       <div class="form-row"><label class="form-lbl">Litros totales</label><input class="form-inp" id="mb-litros" type="number" placeholder="20"></div>
       <div class="form-row"><label class="form-lbl">Costo total ($)</label><input class="form-inp" id="mb-costo" type="number" placeholder="150000"></div>
     </div>
+    <div class="form-row"><label class="form-lbl">Fecha de ingreso</label><input class="form-inp" id="mb-fecha" type="date"></div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
       <p style="font-size:11px;font-weight:600;color:var(--oro);margin:0">Presentaciones</p>
       <button class="btn btn-gray btn-xs" onclick="mbAddPres()">+ Agregar</button>
@@ -823,6 +828,7 @@ if('serviceWorker' in navigator){
     <input type="hidden" id="rc-idx">
     <p id="rc-desc" style="font-size:12px;color:var(--text2);margin-bottom:12px"></p>
     <div class="form-row"><label class="form-lbl">Litros que entran</label><input class="form-inp" id="rc-litros" type="number" placeholder="20" min="0.1"></div>
+    <div class="form-row"><label class="form-lbl">Fecha de ingreso</label><input class="form-inp" id="rc-fecha" type="date"></div>
     <div class="modal-btns">
       <button class="btn btn-oro" onclick="doRecargar()">Recargar</button>
       <button class="btn btn-gray" onclick="closeModal('modal-recargar')">Cancelar</button>
@@ -915,10 +921,26 @@ if('serviceWorker' in navigator){
       <div class="form-row"><label class="form-lbl">Precio venta ($)</label><input class="form-inp" id="ml-precio" type="number" placeholder="4500"></div>
       <div class="form-row"><label class="form-lbl">Costo ($)</label><input class="form-inp" id="ml-costo" type="number" placeholder="2800"></div>
     </div>
-    <div class="form-row"><label class="form-lbl">Stock inicial (unidades)</label><input class="form-inp" id="ml-stock" type="number" placeholder="24"></div>
+    <div class="form-row"><label class="form-lbl" id="ml-stock-lbl">Stock inicial (unidades)</label><input class="form-inp" id="ml-stock" type="number" placeholder="24"></div>
+    <div class="form-row"><label class="form-lbl">Fecha de ingreso <span style="font-weight:400;color:var(--text3)">(se usa si el stock aumenta)</span></label><input class="form-inp" id="ml-fecha" type="date"></div>
     <div class="modal-btns">
       <button class="btn btn-oro" onclick="saveLata()">Guardar</button>
       <button class="btn btn-gray" onclick="closeModal('modal-lata')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL REPONER LATAS / SNACKS -->
+<div class="modal-ov" id="modal-reponer">
+  <div class="modal">
+    <h3 id="rp-title">Reponer</h3>
+    <input type="hidden" id="rp-tipo"><input type="hidden" id="rp-idx">
+    <p id="rp-desc" style="font-size:12px;color:var(--text2);margin-bottom:12px"></p>
+    <div class="form-row"><label class="form-lbl">Unidades que entran</label><input class="form-inp" id="rp-unidades" type="number" min="1" placeholder="24"></div>
+    <div class="form-row"><label class="form-lbl">Fecha de ingreso</label><input class="form-inp" id="rp-fecha" type="date"></div>
+    <div class="modal-btns">
+      <button class="btn btn-oro" onclick="doReponer()">Reponer</button>
+      <button class="btn btn-gray" onclick="closeModal('modal-reponer')">Cancelar</button>
     </div>
   </div>
 </div>
@@ -933,7 +955,8 @@ if('serviceWorker' in navigator){
       <div class="form-row"><label class="form-lbl">Precio venta ($)</label><input class="form-inp" id="ms-precio" type="number" placeholder="6000"></div>
       <div class="form-row"><label class="form-lbl">Costo ($)</label><input class="form-inp" id="ms-costo" type="number" placeholder="3000"></div>
     </div>
-    <div class="form-row"><label class="form-lbl">Stock inicial (unidades)</label><input class="form-inp" id="ms-stock" type="number" placeholder="20"></div>
+    <div class="form-row"><label class="form-lbl" id="ms-stock-lbl">Stock inicial (unidades)</label><input class="form-inp" id="ms-stock" type="number" placeholder="20"></div>
+    <div class="form-row"><label class="form-lbl">Fecha de ingreso <span style="font-weight:400;color:var(--text3)">(se usa si el stock aumenta)</span></label><input class="form-inp" id="ms-fecha" type="date"></div>
     <div class="modal-btns">
       <button class="btn btn-oro" onclick="saveSnack()">Guardar</button>
       <button class="btn btn-gray" onclick="closeModal('modal-snack')">Cancelar</button>
@@ -1054,7 +1077,8 @@ let S=(()=>{ try{ const r=localStorage.getItem('dcbeer_v4'); if(r) return JSON.p
 // Compatibilidad: si el sistema ya existía antes de agregar Turno de Caja, no tiene este campo.
 if(!S.turno) S.turno = { abierto:false, baseApertura:0, horaApertura:'', fechaApertura:'' };
 if(!S.promociones) S.promociones = [];
-if(!S.mermas) S.mermas = [];  // historial de barriles vaciados (merma)
+if(!S.mermas) S.mermas = [];
+if(!S.ingresos) S.ingresos = [];  // registro de ingresos de mercancía (barriles, latas, snacks) con su fecha  // historial de barriles vaciados (merma)
 if(!S.radler) S.radler = { precio:15000, jugoCosto:450, naranjaCosto:224 };
 let curMesa=null, curMetodo='efectivo', curHistTab='dia', curModoPago='simple';
 // Instancias de gráficas (hay que destruirlas antes de redibujar en el mismo canvas)
@@ -2762,8 +2786,9 @@ function rVentas(){
 // STOCK
 // ════════════════════════════════════════
 function rStock(){
+  try{ rPedido(); rIngresos(); }catch(e){ console.log('pedido error',e); }
   // Construye una tarjeta individual de producto
-  const tarjeta = (nombre, cur, max, esLitros, tipoIcono)=>{
+  const tarjeta = (nombre, cur, max, esLitros, tipoIcono, ingreso)=>{
     const p = max>0 ? (cur/max)*100 : 0;
     const nivel = nivelStock(p);
     const valorGrande = esLitros ? `${cur.toFixed(1)}L` : `${cur}`;
@@ -2780,6 +2805,7 @@ function rStock(){
       </div>
       <div class="stock-card-valor">${valorGrande}</div>
       <div class="stock-card-valor-sub">${valorSub}</div>
+      ${ingreso?`<div class="stock-card-valor-sub" style="margin-top:2px">Ingresó ${_textoHace(ingreso)} · ${ingreso.slice(0,5)}</div>`:''}
       <div class="stock-card-bar-w"><div class="stock-card-bar" style="width:${p}%;background:${semColor(p)}"></div></div>
       <div class="stock-card-bottom">${tag}</div>
     </div>`;
@@ -2790,7 +2816,7 @@ function rStock(){
     return items.map(it=>{
       const max = tipo==='barril' ? it.litrosMax : it.stockMax;
       const cur = tipo==='barril' ? it.litros : it.stock;
-      return tarjeta(it.nombre, cur, max, tipo==='barril', tipo);
+      return tarjeta(it.nombre, cur, max, tipo==='barril', tipo, it.fechaIngreso);
     }).join('');
   };
 
@@ -3213,6 +3239,8 @@ function rConfig(){
   document.getElementById('cfg-base').value=S.config.baseCaja||100000;
   document.getElementById('cfg-recargo').value=S.config.recargo||6;
   document.getElementById('cfg-alerta-barril').value=S.config.alertaBarrilL||3;
+  document.getElementById('cfg-dias-entrega').value=(S.config.diasEntrega!=null?S.config.diasEntrega:3);
+  document.getElementById('cfg-dias-cobertura').value=S.config.diasCobertura||14;
   const pc=S.config.preciosCata||{};
   document.getElementById('cfg-cata1L').value=pc.litro1||'';
   document.getElementById('cfg-cata2L').value=pc.litro2||'';
@@ -3221,10 +3249,10 @@ function rConfig(){
   document.getElementById('cfg-radler-naranja').value=S.radler.naranjaCosto;
   document.getElementById('cfg-barriles').innerHTML=S.barriles.length===0?'<p style="color:var(--text2);font-size:13px">Sin barriles.</p>':S.barriles.map((b,i)=>{
     const pres=getPresArray(b);
-    return `<div class="cfg-item"><div class="cfg-item-info"><div class="cfg-item-name">${b.nombre}</div><div class="cfg-item-detail"><span>${b.litros.toFixed(1)}L / ${b.litrosMax}L</span>${b.costoTotal?'<span>Costo: '+fmt(b.costoTotal)+'</span>':''}${pres.map(p=>'<span>'+p.nombre+' '+fmt(p.precio)+'</span>').join('')}</div></div><div class="cfg-actions"><button class="btn btn-gray btn-xs" onclick="openRecargar(${i})">↑ Recargar</button><button class="btn btn-gray btn-xs" onclick="vaciarBarril(${i})"${b.litros>0?'':' disabled style="opacity:.45"'}>Vaciar</button><button class="btn-edit" onclick="openMB(${i})">✏ Editar</button><button class="btn-del-sm" onclick="delBarril(${i})">✕</button></div></div>`;
+    return `<div class="cfg-item"><div class="cfg-item-info"><div class="cfg-item-name">${b.nombre}</div><div class="cfg-item-detail"><span>${b.litros.toFixed(1)}L / ${b.litrosMax}L</span>${b.costoTotal?'<span>Costo: '+fmt(b.costoTotal)+'</span>':''}${b.fechaIngreso?'<span>Ingresó: '+b.fechaIngreso+' ('+_textoHace(b.fechaIngreso)+')</span>':''}${pres.map(p=>'<span>'+p.nombre+' '+fmt(p.precio)+'</span>').join('')}</div></div><div class="cfg-actions"><button class="btn btn-gray btn-xs" onclick="openRecargar(${i})">↑ Recargar</button><button class="btn btn-gray btn-xs" onclick="vaciarBarril(${i})"${b.litros>0?'':' disabled style="opacity:.45"'}>Vaciar</button><button class="btn-edit" onclick="openMB(${i})">✏ Editar</button><button class="btn-del-sm" onclick="delBarril(${i})">✕</button></div></div>`;
   }).join('');
-  document.getElementById('cfg-latas').innerHTML=S.latas.length===0?'<p style="color:var(--text2);font-size:13px">Sin latas.</p>':S.latas.map((l,i)=>`<div class="cfg-item"><div class="cfg-item-info"><div class="cfg-item-name">${l.nombre}</div><div class="cfg-item-detail"><span>Precio: ${fmt(l.precio)}</span><span>Costo: ${fmt(l.costo||0)}</span><span>Margen: ${l.precio>0?Math.round(((l.precio-(l.costo||0))/l.precio)*100):0}%</span><span>Stock: ${l.stock}/${l.stockMax}</span></div></div><div class="cfg-actions"><button class="btn-edit" onclick="openML(${i})">✏ Editar</button><button class="btn-del-sm" onclick="delLata(${i})">✕</button></div></div>`).join('');
-  document.getElementById('cfg-snacks').innerHTML=S.snacks.length===0?'<p style="color:var(--text2);font-size:13px">Sin snacks.</p>':S.snacks.map((sn,i)=>`<div class="cfg-item"><div class="cfg-item-info"><div class="cfg-item-name">${sn.nombre}</div><div class="cfg-item-detail"><span>Precio: ${fmt(sn.precio)}</span><span>Costo: ${fmt(sn.costo||0)}</span><span>Margen: ${sn.precio>0?Math.round(((sn.precio-(sn.costo||0))/sn.precio)*100):0}%</span><span>Stock: ${sn.stock}/${sn.stockMax}</span></div></div><div class="cfg-actions"><button class="btn-edit" onclick="openMS(${i})">✏ Editar</button><button class="btn-del-sm" onclick="delSnack(${i})">✕</button></div></div>`).join('');
+  document.getElementById('cfg-latas').innerHTML=S.latas.length===0?'<p style="color:var(--text2);font-size:13px">Sin latas.</p>':S.latas.map((l,i)=>`<div class="cfg-item"><div class="cfg-item-info"><div class="cfg-item-name">${l.nombre}</div><div class="cfg-item-detail"><span>Precio: ${fmt(l.precio)}</span><span>Costo: ${fmt(l.costo||0)}</span><span>Margen: ${l.precio>0?Math.round(((l.precio-(l.costo||0))/l.precio)*100):0}%</span><span>Stock: ${l.stock}/${l.stockMax}</span>${l.fechaIngreso?'<span>Ingresó: '+l.fechaIngreso+'</span>':''}</div></div><div class="cfg-actions"><button class="btn btn-gray btn-xs" onclick="openReponer('lata',${i})">↑ Reponer</button><button class="btn-edit" onclick="openML(${i})">✏ Editar</button><button class="btn-del-sm" onclick="delLata(${i})">✕</button></div></div>`).join('');
+  document.getElementById('cfg-snacks').innerHTML=S.snacks.length===0?'<p style="color:var(--text2);font-size:13px">Sin snacks.</p>':S.snacks.map((sn,i)=>`<div class="cfg-item"><div class="cfg-item-info"><div class="cfg-item-name">${sn.nombre}</div><div class="cfg-item-detail"><span>Precio: ${fmt(sn.precio)}</span><span>Costo: ${fmt(sn.costo||0)}</span><span>Margen: ${sn.precio>0?Math.round(((sn.precio-(sn.costo||0))/sn.precio)*100):0}%</span><span>Stock: ${sn.stock}/${sn.stockMax}</span>${sn.fechaIngreso?'<span>Ingresó: '+sn.fechaIngreso+'</span>':''}</div></div><div class="cfg-actions"><button class="btn btn-gray btn-xs" onclick="openReponer('snack',${i})">↑ Reponer</button><button class="btn-edit" onclick="openMS(${i})">✏ Editar</button><button class="btn-del-sm" onclick="delSnack(${i})">✕</button></div></div>`).join('');
   document.getElementById('cfg-mesas').innerHTML=S.mesas.map((m,i)=>`<div class="cfg-item"><div class="cfg-item-info"><div class="cfg-item-name">${m.nombre}</div></div>${S.mesas.length>1?'<button class="btn-del-sm btn-xs" onclick="delMesa('+i+')">✕</button>':''}</div>`).join('');
 
   const TIPO_LABEL = {combo:'Combo', descuento:'Descuento %', happyhour:'Happy Hour', nxgratis:'Lleva gratis'};
@@ -3246,6 +3274,8 @@ function saveConfig(){
   S.config.baseCaja=parseFloat(document.getElementById('cfg-base').value)||100000;
   S.config.recargo=parseFloat(document.getElementById('cfg-recargo').value)||6;
   S.config.alertaBarrilL=parseFloat(document.getElementById('cfg-alerta-barril').value)||3;
+  { const de=parseFloat(document.getElementById('cfg-dias-entrega').value); S.config.diasEntrega=(isNaN(de)||de<0)?3:de; }
+  S.config.diasCobertura=parseFloat(document.getElementById('cfg-dias-cobertura').value)||14;
   if(!S.config.preciosCata) S.config.preciosCata={};
   S.config.preciosCata.litro1=parseFloat(document.getElementById('cfg-cata1L').value)||0;
   S.config.preciosCata.litro2=parseFloat(document.getElementById('cfg-cata2L').value)||0;
@@ -3291,10 +3321,12 @@ function openMB(idx){
     document.getElementById('mb-nombre').value=b.nombre;
     document.getElementById('mb-litros').value=b.litrosMax;
     document.getElementById('mb-costo').value=b.costoTotal||'';
+    document.getElementById('mb-fecha').value=b.fechaIngreso?fechaAInputDate(b.fechaIngreso):'';
     mbPresTemp=getPresArray(b).map(p=>({...p}));
   } else {
     document.getElementById('mb-title').textContent='Agregar Barril';
     ['mb-nombre','mb-litros','mb-costo'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('mb-fecha').value=_hoyISO();
     mbPresTemp=[];
   }
   renderMBPres();
@@ -3308,13 +3340,149 @@ function saveBarril(){
   const presentaciones=mbPresTemp.filter(p=>p.nombre&&p.ml&&p.precio).map(p=>({nombre:p.nombre.trim(),ml:parseFloat(p.ml),precio:parseFloat(p.precio)}));
   const barril={nombre,litrosMax,litros:litrosMax,costoTotal:parseFloat(document.getElementById('mb-costo').value)||0,presentaciones};
   const idx=document.getElementById('mb-idx').value;
+  const fechaIng=_fechaDesdeInput('mb-fecha');
   if(idx!==''){
     barril.litros=S.barriles[parseInt(idx)].litros;
+    barril.fechaIngreso=document.getElementById('mb-fecha').value?fechaIng:(S.barriles[parseInt(idx)].fechaIngreso||'');
     // limpiar campos viejos de migración
     delete barril.vaso; delete barril.pinta; delete barril.jarro;
     S.barriles[parseInt(idx)]=barril;
-  } else S.barriles.push(barril);
+  } else { barril.fechaIngreso=fechaIng; S.barriles.push(barril); _registrarIngreso('barril',nombre,litrosMax,'L',fechaIng,barril.costoTotal); }
   save(); closeModal('modal-barril'); rConfig(); toast('Barril guardado ✓');
+}
+
+// ════════════════════════════════════════
+// FECHA DE INGRESO + REGISTRO DE INGRESOS DE MERCANCÍA
+// Por defecto se pone la fecha de hoy (la del sistema); se puede cambiar si la mercancía llegó otro día.
+// ════════════════════════════════════════
+function _hoyISO(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function _fechaDesdeInput(id){ const el=document.getElementById(id); return (el&&el.value)?inputDateAFecha(el.value):inputDateAFecha(_hoyISO()); }
+function _diasDesde(f){ const d=parseFechaDDMMYYYY(f); if(!d) return null; const h=new Date(); return Math.round((new Date(h.getFullYear(),h.getMonth(),h.getDate())-d)/86400000); }
+function _textoHace(f){ const n=_diasDesde(f); if(n==null) return f; return n<=0?'hoy':n===1?'ayer':'hace '+n+' días'; }
+function _registrarIngreso(tipo,nombre,cantidad,unidad,fecha,costo){
+  if(!S.ingresos) S.ingresos=[];
+  S.ingresos.push({ts:Date.now(),fecha,tipo,nombre,cantidad:Math.round(cantidad*100)/100,unidad,costo:costo||0});
+  if(S.ingresos.length>300) S.ingresos=S.ingresos.slice(-300);
+}
+function openReponer(tipo,idx){
+  const it=(tipo==='lata'?S.latas:S.snacks)[idx]; if(!it) return;
+  document.getElementById('rp-tipo').value=tipo; document.getElementById('rp-idx').value=idx;
+  document.getElementById('rp-title').textContent='Reponer '+(tipo==='lata'?'lata':'snack');
+  document.getElementById('rp-desc').textContent=it.nombre+' — hay '+it.stock+' unidades ahora';
+  document.getElementById('rp-unidades').value=''; document.getElementById('rp-fecha').value=_hoyISO();
+  document.getElementById('modal-reponer').classList.add('open');
+}
+function doReponer(){
+  const tipo=document.getElementById('rp-tipo').value, idx=parseInt(document.getElementById('rp-idx').value);
+  const n=parseFloat(document.getElementById('rp-unidades').value);
+  if(!n||n<=0){ toast('Ingresa cuántas unidades entran'); return; }
+  const it=(tipo==='lata'?S.latas:S.snacks)[idx]; if(!it) return;
+  const fecha=_fechaDesdeInput('rp-fecha');
+  it.stock=(it.stock||0)+n; if(it.stock>it.stockMax) it.stockMax=it.stock; it.fechaIngreso=fecha;
+  _registrarIngreso(tipo,it.nombre,n,'uds',fecha,0);
+  save(); closeModal('modal-reponer'); rConfig(); try{ rStock(); }catch(e){}
+  toast(it.nombre+' repuesto: +'+n+' ✓');
+}
+
+// ════════════════════════════════════════
+// PEDIDO SUGERIDO — con tus ventas reales de los últimos 28 días
+// ════════════════════════════════════════
+const PEDIDO_VENTANA=28;
+function _todasLasVentas(){ const a=[]; (S.historial||[]).forEach(h=>(h.ventas||[]).forEach(v=>a.push(v))); (S.ventas||[]).forEach(v=>a.push(v)); return a; }
+function _consumoPorProducto(){
+  const vs=_todasLasVentas();
+  const h=new Date(); const hoy0=new Date(h.getFullYear(),h.getMonth(),h.getDate());
+  let primera=null; vs.forEach(v=>{ const f=parseFechaDDMMYYYY(v.fecha); if(f&&(!primera||f<primera)) primera=f; });
+  if(!primera) return null;
+  const ventana=new Date(hoy0.getTime()-(PEDIDO_VENTANA-1)*86400000);
+  const inicio=primera>ventana?primera:ventana;
+  const dias=Math.max(1,Math.round((hoy0-inicio)/86400000)+1);
+  const bar={}, lat={}, sna={};
+  const sumB=(i,L)=>{ bar[i]=(bar[i]||0)+L; };
+  vs.forEach(v=>{
+    const f=parseFechaDDMMYYYY(v.fecha); if(!f||f<inicio) return;
+    (v.items||[]).forEach(it=>{
+      if(it.tipo==='barril') sumB(it.barrilIdx,(it.ml/1000)*it.qty);
+      if(it.tipo==='tabla'||(it.tipo==='cata'&&!it.cataPendiente)) (it.desgloseBarriles||[]).forEach(d=>sumB(d.barrilIdx,(d.ml/1000)*it.qty));
+      if(it.tipo==='lata') lat[it.lataIdx]=(lat[it.lataIdx]||0)+it.qty;
+      if(it.tipo==='snack') sna[it.snackIdx]=(sna[it.snackIdx]||0)+it.qty;
+      if(it.tipo==='radler'&&it.radlerBase){
+        if(it.radlerBase.tipo==='barril') sumB(it.radlerBase.idx,((it.radlerMl||290)/1000)*it.qty);
+        if(it.radlerBase.tipo==='lata') lat[it.radlerBase.idx]=(lat[it.radlerBase.idx]||0)+it.qty;
+      }
+    });
+  });
+  return {dias,bar,lat,sna};
+}
+function _calcPedido(){
+  const c=_consumoPorProducto(); if(!c) return null;
+  const entrega=(S.config.diasEntrega!=null?S.config.diasEntrega:3), cobertura=S.config.diasCobertura||14;
+  const filas=[];
+  const evalua=(tipo,nombre,actual,porDia,cap,unidad)=>{
+    const dias=porDia>0?actual/porDia:null;
+    let estado='ok';
+    if(porDia<=0) estado=actual<=0?'nada':'sinventas';
+    else if(actual<=0||dias<=entrega+2) estado='ya';
+    else if(dias<=entrega+7) estado='pronto';
+    let pedir='', cant=0;
+    if(estado==='ya'||estado==='pronto'){
+      if(tipo==='barril'){ cant=Math.max(1,Math.ceil((porDia*cobertura-actual)/cap)); pedir=cant+(cant>1?' barriles':' barril')+' de '+cap+' L'; }
+      else { cant=Math.max(1,Math.ceil(porDia*cobertura-actual)); pedir=cant+' unidades'; }
+    }
+    filas.push({tipo,nombre,actual,porDia,dias,estado,pedir,cant,unidad});
+  };
+  S.barriles.forEach((b,i)=>evalua('barril',b.nombre,b.litros,(c.bar[i]||0)/c.dias,b.litrosMax,'L'));
+  S.latas.forEach((l,i)=>evalua('lata',l.nombre,l.stock,(c.lat[i]||0)/c.dias,0,'uds'));
+  S.snacks.forEach((sn,i)=>evalua('snack',sn.nombre,sn.stock,(c.sna[i]||0)/c.dias,0,'uds'));
+  return {filas,dias:c.dias,entrega,cobertura};
+}
+function _fmtDiasRest(d){ if(d==null) return '—'; if(d<1) return 'menos de 1 día'; const n=Math.floor(d); return '≈ '+n+(n===1?' día':' días'); }
+function _fechaAcaba(d){ if(d==null) return ''; const f=new Date(Date.now()+d*86400000); return f.toLocaleDateString('es-CO',{weekday:'short',day:'2-digit',month:'2-digit'}); }
+let _pedidoTexto='';
+function rPedido(){
+  const cont=document.getElementById('stock-pedido'); if(!cont) return;
+  const r=_calcPedido();
+  const hdr=`<div class="card-title"><span style="display:inline-flex;align-items:center;gap:8px">${icon('barril',15,'var(--oro)')} Pedido sugerido</span></div>`;
+  if(!r){ cont.innerHTML=`<div class="card">${hdr}<p style="color:var(--text2);font-size:13px;line-height:1.6">Aún no hay ventas registradas para calcular cuánto necesitas pedir. Cuando haya, aparecerá aquí.</p></div>`; return; }
+  const ya=r.filas.filter(f=>f.estado==='ya').sort((a,b)=>(a.dias==null?-1:a.dias)-(b.dias==null?-1:b.dias));
+  const pronto=r.filas.filter(f=>f.estado==='pronto').sort((a,b)=>a.dias-b.dias);
+  const fila=(f,color,etq)=>`<div style="display:flex;gap:10px;align-items:flex-start;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);flex-wrap:wrap">
+      <div style="flex:1;min-width:190px">
+        <span style="background:${color}22;color:${color};font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px;letter-spacing:.5px">${etq}</span>
+        <span style="font-weight:800;font-size:14px;margin-left:6px">${_esc(f.nombre)}</span>
+        <div style="font-size:12px;color:var(--text2);margin-top:4px;line-height:1.6">Quedan <b style="color:var(--text)">${f.unidad==='L'?f.actual.toFixed(1)+' L':f.actual+' uds'}</b> · vendes ≈ ${f.unidad==='L'?(f.porDia).toFixed(1)+' L':(f.porDia).toFixed(1)+' uds'} por día<br>${f.actual<=0?'<b style="color:var(--red-light)">Agotado</b>':'Te alcanza '+_fmtDiasRest(f.dias)+' · se acaba ≈ '+_fechaAcaba(f.dias)}</div>
+      </div>
+      <div style="text-align:right"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1px">Pide</div><div style="font-size:15px;font-weight:900;color:var(--oro-light)">${f.pedir}</div></div>
+    </div>`;
+  let cuerpo='';
+  if(ya.length===0&&pronto.length===0){
+    const prox=r.filas.filter(f=>f.dias!=null&&f.actual>0).sort((a,b)=>a.dias-b.dias)[0];
+    cuerpo=`<div class="banner b-green" style="text-align:left;margin-bottom:0">✅ Por ahora no necesitas pedir nada.${prox?` Lo primero que se acaba es <b>${_esc(prox.nombre)}</b> (${_fmtDiasRest(prox.dias)}).`:''}</div>`;
+  } else {
+    cuerpo=ya.map(f=>fila(f,'#e74c3c','PEDIR YA')).join('')+pronto.map(f=>fila(f,'#e6a23c','ESTA SEMANA')).join('');
+  }
+  const lineas=[...ya,...pronto].map(f=>'- '+f.nombre+': '+f.pedir);
+  _pedidoTexto=lineas.length?('Pedido DC BEER — '+fechaHoy()+'\n'+lineas.join('\n')):'';
+  const todos=r.filas.slice().sort((a,b)=>(a.dias==null?1e9:a.dias)-(b.dias==null?1e9:b.dias)).map(f=>`<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px"><span>${_esc(f.nombre)}</span><span style="color:var(--text2);text-align:right">${f.unidad==='L'?f.actual.toFixed(1)+' L':f.actual+' uds'} · ${f.dias==null?'sin ventas recientes':_fmtDiasRest(f.dias)}</span></div>`).join('');
+  cont.innerHTML=`<div class="card" style="border-color:rgba(200,146,42,.35)">${hdr}
+    <p style="font-size:11px;color:var(--text3);margin:-4px 0 10px;line-height:1.5">Calculado con tus ventas de los últimos ${r.dias} día(s). Un pedido tarda ${r.entrega} día(s) en llegar y al pedir se cubren ${r.cobertura} días de venta (se ajusta en Configuración).</p>
+    ${r.dias<7?`<div class="banner b-yellow" style="text-align:left;font-size:12px;margin-bottom:10px">Todavía hay pocos días de ventas (${r.dias}); las cifras son aproximadas.</div>`:''}
+    ${cuerpo}
+    ${lineas.length?`<button class="btn btn-gray btn-sm" onclick="copiarPedido()" style="margin-top:12px">Copiar pedido (para WhatsApp)</button>`:''}
+    <details style="margin-top:12px"><summary style="cursor:pointer;font-size:12px;color:var(--oro)">Ver todos los productos y cuántos días de stock tienen</summary><div style="margin-top:8px">${todos}</div></details>
+  </div>`;
+}
+function copiarPedido(){
+  if(!_pedidoTexto) return;
+  const ok=()=>toast('Pedido copiado ✓ — pégalo en WhatsApp');
+  try{ navigator.clipboard.writeText(_pedidoTexto).then(ok).catch(()=>{ _copiaManual(); ok(); }); }catch(e){ _copiaManual(); ok(); }
+}
+function _copiaManual(){ const t=document.createElement('textarea'); t.value=_pedidoTexto; document.body.appendChild(t); t.select(); try{ document.execCommand('copy'); }catch(e){} document.body.removeChild(t); }
+function rIngresos(){
+  const cont=document.getElementById('stock-ingresos'); if(!cont) return;
+  const ing=(S.ingresos||[]).slice().reverse().slice(0,15);
+  if(!ing.length){ cont.innerHTML=''; return; }
+  cont.innerHTML=`<div class="card"><div class="card-title">Últimos ingresos de mercancía</div>`+ing.map(g=>`<div style="display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;flex-wrap:wrap"><span><span style="color:var(--text3)">${g.fecha}</span> · <b>${_esc(g.nombre)}</b></span><span style="color:var(--oro-light);font-weight:700">+${g.cantidad} ${g.unidad}</span></div>`).join('')+`</div>`;
 }
 
 function openRecargar(idx){
@@ -3322,6 +3490,7 @@ function openRecargar(idx){
   document.getElementById('rc-idx').value=idx;
   document.getElementById('rc-desc').textContent=b.nombre+' — '+b.litros.toFixed(1)+'L disponibles de '+b.litrosMax+'L';
   document.getElementById('rc-litros').value='';
+  document.getElementById('rc-fecha').value=_hoyISO();
   document.getElementById('modal-recargar').classList.add('open');
 }
 function doRecargar(){
@@ -3329,13 +3498,17 @@ function doRecargar(){
   const litros=parseFloat(document.getElementById('rc-litros').value);
   if(!litros||litros<=0){ toast('Ingresa los litros a recargar'); return; }
   const b=S.barriles[idx];
+  const fechaIng=_fechaDesdeInput('rc-fecha');
+  let esBarrilNuevo = b.litros<=0.05;   // el anterior ya estaba en 0 → lo que entra es un barril nuevo
   // Si el sistema aún muestra litros y ya se vendió algo, lo más probable es que el barril anterior se acabó con merma
   if(b.litros>0.05 && b.litrosMax-b.litros>0.05){
     if(confirm('Antes de recargar: el barril anterior de '+b.nombre+' aún aparece con '+b.litros.toFixed(1)+' L en el sistema.\n\n'+_textoMerma(b)+'\n\n¿Ya está vacío?\n\nAceptar = guardar esa merma y empezar con el barril nuevo.\nCancelar = solo sumar los litros (por ejemplo, si el barril anterior NO está vacío).')){
-      _registrarMerma(b); b.litros=0;
+      _registrarMerma(b); b.litros=0; esBarrilNuevo=true;
     }
   }
   b.litros=Math.min(b.litrosMax, b.litros+litros);
+  if(esBarrilNuevo||!b.fechaIngreso) b.fechaIngreso=fechaIng;
+  _registrarIngreso('barril',b.nombre,litros,'L',fechaIng,litros>=b.litrosMax*0.9?(b.costoTotal||0):0);
   save(); closeModal('modal-recargar'); rConfig(); toast(b.nombre+' recargado ✓');
 }
 // ── MERMA: cerveza que el sistema esperaba vender pero se perdió (espuma, líneas, fondo del barril) ──
@@ -3356,7 +3529,7 @@ function _registrarMerma(b){
   const m=_calcMerma(b);
   if(!S.mermas) S.mermas=[];
   S.mermas.push({
-    fecha:fechaHoy(), ts:Date.now(), barril:b.nombre, litrosMax:b.litrosMax,
+    fecha:fechaHoy(), ts:Date.now(), barril:b.nombre, litrosMax:b.litrosMax, fechaIngreso:b.fechaIngreso||'', dias:(b.fechaIngreso?_diasDesde(b.fechaIngreso):null),
     vendidos:Math.round(m.vendidos*100)/100, merma:Math.round(m.merma*100)/100, pct:Math.round(m.pct*10)/10,
     costoTotal:b.costoTotal||0, costoNominal:Math.round(m.costoNominal), costoReal:Math.round(m.costoReal), perdido:Math.round(m.perdido)
   });
@@ -3386,7 +3559,7 @@ function rMerma(){
         <div style="display:flex;align-items:center;gap:8px">${chip(m.pct)}<button class="btn-del-sm btn-xs" onclick="delMerma(${k})">✕</button></div>
       </div>
       <div style="font-size:12px;color:var(--text2);line-height:1.7">
-        Vendiste <b style="color:var(--text)">${m.vendidos.toFixed(1)} L</b> de ${m.litrosMax} L<br>
+        ${m.dias!=null&&m.dias>=0?`Duró <b style="color:var(--text)">${m.dias} día(s)</b> (ingresó el ${m.fechaIngreso})<br>`:''}Vendiste <b style="color:var(--text)">${m.vendidos.toFixed(1)} L</b> de ${m.litrosMax} L<br>
         Se perdieron <b style="color:${m.pct>MERMA_ALTA?'var(--red-light)':'var(--text)'}">${m.merma.toFixed(1)} L (${m.pct.toFixed(1)}%)</b>${m.perdido?` · ≈ ${fmt(m.perdido)} en cerveza`:''}
         ${m.costoReal?`<br>Costo real por litro vendido: <b style="color:var(--text)">${fmt(m.costoReal)}</b> <span style="color:var(--text3)">(esperado ${fmt(m.costoNominal)})</span>`:''}
       </div>
@@ -3400,11 +3573,32 @@ function rMerma(){
 }
 function delBarril(i){ if(!confirm('¿Eliminar '+S.barriles[i].nombre+'?')) return; S.barriles.splice(i,1); save(); rConfig(); }
 
-function openML(idx){ document.getElementById('ml-idx').value=idx!==null?idx:''; if(idx!==null){ const l=S.latas[idx]; document.getElementById('ml-title').textContent='Editar Lata'; document.getElementById('ml-nombre').value=l.nombre; document.getElementById('ml-precio').value=l.precio; document.getElementById('ml-costo').value=l.costo||''; document.getElementById('ml-stock').value=l.stockMax; } else{ document.getElementById('ml-title').textContent='Agregar Lata'; ['ml-nombre','ml-precio','ml-costo','ml-stock'].forEach(id=>document.getElementById(id).value=''); } document.getElementById('modal-lata').classList.add('open'); }
-function saveLata(){ const nombre=document.getElementById('ml-nombre').value.trim(); const precio=parseFloat(document.getElementById('ml-precio').value); if(!nombre||!precio){ toast('Completa nombre y precio'); return; } const costo=parseFloat(document.getElementById('ml-costo').value)||0; const stockMax=parseFloat(document.getElementById('ml-stock').value)||24; const idx=document.getElementById('ml-idx').value; if(idx!==''){ S.latas[parseInt(idx)]={nombre,precio,costo,stock:stockMax,stockMax}; } else S.latas.push({nombre,precio,costo,stock:stockMax,stockMax}); save(); closeModal('modal-lata'); rConfig(); toast('Lata guardada ✓'); }
+function openML(idx){ document.getElementById('ml-idx').value=idx!==null?idx:''; document.getElementById('ml-fecha').value=_hoyISO(); if(idx!==null){ const l=S.latas[idx]; document.getElementById('ml-title').textContent='Editar Lata'; document.getElementById('ml-stock-lbl').textContent='Stock actual (unidades)'; document.getElementById('ml-nombre').value=l.nombre; document.getElementById('ml-precio').value=l.precio; document.getElementById('ml-costo').value=l.costo||''; document.getElementById('ml-stock').value=l.stock; } else{ document.getElementById('ml-title').textContent='Agregar Lata'; document.getElementById('ml-stock-lbl').textContent='Stock inicial (unidades)'; ['ml-nombre','ml-precio','ml-costo','ml-stock'].forEach(id=>document.getElementById(id).value=''); } document.getElementById('modal-lata').classList.add('open'); }
+function saveLata(){ _guardarUnidades('lata','ml'); }
 function delLata(i){ if(!confirm('¿Eliminar '+S.latas[i].nombre+'?')) return; S.latas.splice(i,1); save(); rConfig(); }
-function openMS(idx){ document.getElementById('ms-idx').value=idx!==null?idx:''; if(idx!==null){ const sn=S.snacks[idx]; document.getElementById('ms-title').textContent='Editar Snack'; document.getElementById('ms-nombre').value=sn.nombre; document.getElementById('ms-precio').value=sn.precio; document.getElementById('ms-costo').value=sn.costo||''; document.getElementById('ms-stock').value=sn.stockMax; } else{ document.getElementById('ms-title').textContent='Agregar Snack'; ['ms-nombre','ms-precio','ms-costo','ms-stock'].forEach(id=>document.getElementById(id).value=''); } document.getElementById('modal-snack').classList.add('open'); }
-function saveSnack(){ const nombre=document.getElementById('ms-nombre').value.trim(); const precio=parseFloat(document.getElementById('ms-precio').value); if(!nombre||!precio){ toast('Completa nombre y precio'); return; } const costo=parseFloat(document.getElementById('ms-costo').value)||0; const stockMax=parseFloat(document.getElementById('ms-stock').value)||20; const idx=document.getElementById('ms-idx').value; if(idx!==''){ S.snacks[parseInt(idx)]={nombre,precio,costo,stock:stockMax,stockMax}; } else S.snacks.push({nombre,precio,costo,stock:stockMax,stockMax}); save(); closeModal('modal-snack'); rConfig(); toast('Snack guardado ✓'); }
+function openMS(idx){ document.getElementById('ms-idx').value=idx!==null?idx:''; document.getElementById('ms-fecha').value=_hoyISO(); if(idx!==null){ const sn=S.snacks[idx]; document.getElementById('ms-title').textContent='Editar Snack'; document.getElementById('ms-stock-lbl').textContent='Stock actual (unidades)'; document.getElementById('ms-nombre').value=sn.nombre; document.getElementById('ms-precio').value=sn.precio; document.getElementById('ms-costo').value=sn.costo||''; document.getElementById('ms-stock').value=sn.stock; } else{ document.getElementById('ms-title').textContent='Agregar Snack'; document.getElementById('ms-stock-lbl').textContent='Stock inicial (unidades)'; ['ms-nombre','ms-precio','ms-costo','ms-stock'].forEach(id=>document.getElementById(id).value=''); } document.getElementById('modal-snack').classList.add('open'); }
+function saveSnack(){ _guardarUnidades('snack','ms'); }
+// Guardar lata/snack. Al EDITAR se conserva el stock actual (ya no se rellena solo al máximo);
+// si el stock sube, se registra como ingreso con la fecha elegida.
+function _guardarUnidades(tipo,pre){
+  const lista=tipo==='lata'?S.latas:S.snacks;
+  const nombre=document.getElementById(pre+'-nombre').value.trim(); const precio=parseFloat(document.getElementById(pre+'-precio').value);
+  if(!nombre||!precio){ toast(tipo==='lata'?'Completa nombre y precio':'Completa nombre y precio'); return; }
+  const costo=parseFloat(document.getElementById(pre+'-costo').value)||0;
+  const porDefecto=tipo==='lata'?24:20;
+  const idx=document.getElementById(pre+'-idx').value; const fecha=_fechaDesdeInput(pre+'-fecha');
+  const campo=parseFloat(document.getElementById(pre+'-stock').value);
+  if(idx!==''){
+    const old=lista[parseInt(idx)]; const stock=isNaN(campo)?old.stock:Math.max(0,campo);
+    const nuevo={nombre,precio,costo,stock,stockMax:Math.max(old.stockMax||0,stock),fechaIngreso:old.fechaIngreso||''};
+    if(stock>old.stock){ nuevo.fechaIngreso=fecha; _registrarIngreso(tipo,nombre,stock-old.stock,'uds',fecha,0); }
+    lista[parseInt(idx)]=nuevo;
+  } else {
+    const stockMax=campo||porDefecto;
+    lista.push({nombre,precio,costo,stock:stockMax,stockMax,fechaIngreso:fecha}); _registrarIngreso(tipo,nombre,stockMax,'uds',fecha,0);
+  }
+  save(); closeModal(tipo==='lata'?'modal-lata':'modal-snack'); rConfig(); toast((tipo==='lata'?'Lata':'Snack')+' guardado ✓');
+}
 function delSnack(i){ if(!confirm('¿Eliminar '+S.snacks[i].nombre+'?')) return; S.snacks.splice(i,1); save(); rConfig(); }
 function addMesa(){ S.mesas.push({nombre:'Mesa '+(S.mesas.length+1),items:[]}); save(); rConfig(); }
 function delMesa(i){ if(S.mesas[i].items&&S.mesas[i].items.length>0){ toast('Limpia la mesa antes de eliminarla'); return; } if(!confirm('¿Eliminar '+S.mesas[i].nombre+'?')) return; S.mesas.splice(i,1); save(); rConfig(); }
